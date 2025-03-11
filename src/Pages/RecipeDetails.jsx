@@ -38,7 +38,7 @@ const RecipeDetails = () => {
   const isApproved = totalVotes >= 3 && (authenticVotes / totalVotes) >= 0.7;
 
   return (
-    <div className="bg-neutral-900 p-6 rounded-lg">
+    <div className="bg-neutral-900 p-6 rounded-lg py-28">
       {/* Hero section */}
       <div className="max-w-screen-xl mx-auto text-gray-600 gap-x-12 items-center justify-between overflow-hidden md:flex md:px-8">
         <div className="flex-none space-y-5 px-4 sm:max-w-lg md:px-0 lg:max-w-xl">
