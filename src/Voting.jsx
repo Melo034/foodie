@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from './server/firebase'; 
+import { db } from './server/firebase';
 import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 const Voting = ({ recipeId }) => {
@@ -14,14 +14,13 @@ const Voting = ({ recipeId }) => {
         setLoading(true);
         const docRef = doc(db, "recipes", recipeId);
         const docSnap = await getDoc(docRef);
-  
         if (docSnap.exists()) {
           const data = docSnap.data();
-          console.log("Fetched recipe data:", data); 
-  
-          const votes = data.votes ?? []; 
+          const votes = data.votes ?? [];
           setRecipe({ ...data, votes });
-          setVoted(votes.includes(true) || votes.includes(false));
+          // Check local storage to see if this browser voted
+          const hasVoted = localStorage.getItem(`voted_${recipeId}`);
+          setVoted(!!hasVoted);
         } else {
           setError("Recipe not found");
         }
@@ -32,13 +31,8 @@ const Voting = ({ recipeId }) => {
         setLoading(false);
       }
     };
-  
     fetchRecipe();
   }, [recipeId]);
-  
-  
-  
-  
 
   const handleVote = async (vote) => {
     if (voted || !recipe) return;
@@ -48,18 +42,18 @@ const Voting = ({ recipeId }) => {
       await updateDoc(docRef, {
         votes: arrayUnion(vote),
       });
-
       setRecipe(prev => ({
         ...prev,
         votes: [...prev.votes, vote],
       }));
+      // Mark this browser as having voted
+      localStorage.setItem(`voted_${recipeId}`, 'true');
       setVoted(true);
     } catch (error) {
       setError('Error voting');
       console.error('Error voting:', error);
     }
   };
-
   if (loading) return <p>Loading voting data...</p>;
   if (error) return <p>{error}</p>;
 
