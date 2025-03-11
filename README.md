@@ -1,6 +1,6 @@
 # Foodie
 
-This is a web application built with React and Firebase that serves as a directory for Recipe in  Sierra Leone. It provides key information about recipes and allows users to vote on it Authenticity. The application uses Firebase for data storage and management.
+This is a web application built with React and Firebase that serves as a directory for Recipes in  Sierra Leone. It provides key information about recipes and allows users to submit and vote on recipes Authenticity. The application uses Firebase for data storage and management.
 
 ## Technologies Used
 
