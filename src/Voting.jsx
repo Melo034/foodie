@@ -12,21 +12,21 @@ const Voting = ({ recipeId }) => {
     const fetchRecipe = async () => {
       try {
         setLoading(true);
-        const docRef = doc(db, "recipes", recipeId);
+        const docRef = doc(db, 'recipes', recipeId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+          console.log('Fetched recipe data:', data);
           const votes = data.votes ?? [];
           setRecipe({ ...data, votes });
-          // Check local storage to see if this browser voted
           const hasVoted = localStorage.getItem(`voted_${recipeId}`);
           setVoted(!!hasVoted);
         } else {
-          setError("Recipe not found");
+          setError('Recipe not found');
         }
       } catch (error) {
-        setError("Error fetching recipe data");
-        console.error("Error fetching recipe:", error);
+        setError('Error fetching recipe data');
+        console.error('Error fetching recipe:', error);
       } finally {
         setLoading(false);
       }
@@ -39,14 +39,16 @@ const Voting = ({ recipeId }) => {
 
     try {
       const docRef = doc(db, 'recipes', recipeId);
+      console.log('Attempting to vote:', vote);
       await updateDoc(docRef, {
         votes: arrayUnion(vote),
       });
-      setRecipe(prev => ({
-        ...prev,
-        votes: [...prev.votes, vote],
-      }));
-      // Mark this browser as having voted
+      console.log('Vote recorded in Firestore:', vote);
+      setRecipe(prev => {
+        const newVotes = [...prev.votes, vote];
+        console.log('Updated local votes:', newVotes);
+        return { ...prev, votes: newVotes };
+      });
       localStorage.setItem(`voted_${recipeId}`, 'true');
       setVoted(true);
     } catch (error) {
@@ -54,6 +56,7 @@ const Voting = ({ recipeId }) => {
       console.error('Error voting:', error);
     }
   };
+
   if (loading) return <p>Loading voting data...</p>;
   if (error) return <p>{error}</p>;
 
