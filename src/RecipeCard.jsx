@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 const RecipeCard = ({ recipe }) => {
   return (
-    <div className="max-w-full mx-auto mt-4 shadow-lg border rounded-md duration-300 hover:shadow-sm border-neutral-800 bg-gradient-to-bl from-neutral-800 via-neutral-900 to-neutral-950 flex flex-col justify-between">
+    <div className="max-w-full mx-auto mt-4 shadow-lg border rounded-md duration-300 hover:shadow-xl hover:scale-105 border-neutral-800 bg-gradient-to-bl from-neutral-800 via-neutral-900 to-neutral-950 flex flex-col justify-between">
 
       {/* Image */}
       <img
@@ -15,7 +15,7 @@ const RecipeCard = ({ recipe }) => {
       {/* Content */}
       <div className="p-4 flex-1 flex flex-col justify-between">
         <h2 className="text-lg font-semibold text-[#DA1212] line-clamp-1">{recipe.name}</h2>
-        <p className="text-neutral-300 text-sm mt-3 line-clamp-3">{recipe.description}</p>
+        <p className="text-neutral-300 text-sm mt-3 line-clamp-3 overflow-hidden">{recipe.description}</p>
       </div>
 
       {/* Button */}

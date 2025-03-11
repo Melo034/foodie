@@ -1,6 +1,6 @@
 import './App.css';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import RecipesProvider from './RecipesProvider';
+import { RecipesProvider } from './RecipesProvider';
 import Home from './Pages/Home';
 import PendingRecipe from './Pages/PendingRecipe';
 import Recipe from './Pages/Recipe';
@@ -21,6 +21,7 @@ function App() {
             <Route path="/recipes/:id" element={<RecipeDetails />} />
             <Route path="/submit" element={<Submission />} />
             <Route path="/pending" element={<PendingRecipe />} />
+            <Route path="/submit/:id" element={<Submission />} />
           </Routes>
           <Footer/>
         </div>

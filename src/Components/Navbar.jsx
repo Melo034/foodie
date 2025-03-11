@@ -45,7 +45,12 @@ const Navbar = () => {
                             navigation.map((item, idx) => {
                                 return (
                                     <li key={idx} className="text-neutral-200 hover:text-[#DA1212]">
-                                        <NavLink to={item.path} className="block">
+                                        <NavLink
+                                            to={item.path}
+                                            className={({ isActive }) =>
+                                                `block ${isActive ? 'text-[#DA1212]' : 'text-neutral-200'} hover:text-[#DA1212]`
+                                            }
+                                        >
                                             {item.title}
                                         </NavLink>
                                     </li>
