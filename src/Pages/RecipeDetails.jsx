@@ -46,14 +46,6 @@ const RecipeDetails = () => {
             {recipe.name}
           </h2>
           <p className="text-neutral-300">{recipe.description}</p>
-          <div className="flex justify-center md:justify-start">
-            <Link
-              to={`/edit/${id}`}
-              className="inline-flex items-center justify-center sm:py-3 sm:px-9 py-2 px-4 text-xl font-semibold text-white transition duration-300 border-2 rounded-full border-[#DA1212] hover:bg-[#DA1212] hover:-translate-y-1 hover:scale-95"
-            >
-              Edit Recipe
-            </Link>
-          </div>
         </div>
         <div className="flex-none mt-14 md:mt-0 md:max-w-xl">
           <img
