@@ -1,103 +1,195 @@
-import { useState } from "react"
-import { Link } from "react-router-dom"
-import { Edit, Trash2, Plus, MoreHorizontal } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Edit, Trash2, Plus, MoreHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
     AlertDialog,
     AlertDialogAction,
     AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
-    AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { toast } from "sonner"
-import { Footer } from "@/components/utils/Footer"
-import Sidebar from "../Components/Sidebar"
-import { Navbar } from "@/components/utils/Navbar"
-
-// Mock data for user's recipes
-const userRecipes = [
-    {
-        id: "user-1",
-        name: "Homemade Jollof Rice",
-        image: "/images/jollof-rice.jpg",
-        status: "published",
-        approvalRating: 87,
-        votes: 34,
-        date: "2023-10-15",
-    },
-    {
-        id: "user-2",
-        name: "Cassava Leaf Stew",
-        image: "/images/cassava-leaf.jpg",
-        status: "published",
-        approvalRating: 92,
-        votes: 45,
-        date: "2023-09-22",
-    },
-    {
-        id: "user-3",
-        name: "Spicy Groundnut Soup",
-        image: "/images/groundnut-stew.jpg",
-        status: "draft",
-        approvalRating: 0,
-        votes: 0,
-        date: "2023-11-05",
-    },
-    {
-        id: "user-4",
-        name: "Sweet Potato Pudding",
-        image: "/placeholder.svg?height=200&width=300",
-        status: "pending",
-        approvalRating: 0,
-        votes: 0,
-        date: "2023-11-10",
-    },
-]
+    AlertDialogFooter,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { Footer } from "@/components/utils/Footer";
+import Sidebar from "../Components/Sidebar";
+import { Navbar } from "@/components/utils/Navbar";
+import { auth, db } from "@/server/firebase";
+import { collection, query, where, getDocs, doc, deleteDoc, setDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import type { Recipe } from "@/lib/types";
 
 const MyRecipes = () => {
-    const [recipes, setRecipes] = useState(userRecipes)
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-    const [recipeToDelete, setRecipeToDelete] = useState<string | null>(null)
+    const [recipes, setRecipes] = useState<Recipe[]>([]);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [recipeToDelete, setRecipeToDelete] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                setError("You must be logged in to view this page.");
+                navigate("/auth/login");
+                return;
+            }
+
+            try {
+                setLoading(true);
+                const recipesQuery = query(
+                    collection(db, "recipes"),
+                    where("author.id", "==", user.uid)
+                );
+                const snapshot = await getDocs(recipesQuery);
+                const userRecipes = snapshot.docs.map((doc) => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        name: data.name || "Untitled Recipe",
+                        description: data.description || "",
+                        image: data.image || undefined,
+                        cookTime: data.cookTime || 0,
+                        servings: data.servings || 1,
+                        categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
+                        createdAt: data.createdAt
+                            ? typeof data.createdAt === "string"
+                                ? data.createdAt
+                                : data.createdAt.toDate().toISOString()
+                            : new Date().toISOString(),
+                        approvalRating: data.approvalRating || 0,
+                        votes: data.votes || 0,
+                        ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
+                        instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
+                        tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
+                        author: {
+                            id: data.author.id,
+                            name: data.author.name,
+                            avatar: data.author.avatar || undefined,
+                            bio: data.author.bio || undefined,
+                            recipesCount: data.author.recipesCount || 0,
+                        },
+                        comments: data.comments && Array.isArray(data.comments) ? data.comments : [],
+                        status: data.status || "draft",
+                    } as Recipe & { status?: string };
+                });
+                setRecipes(userRecipes);
+            } catch (err: unknown) {
+                console.error("Error fetching recipes:", err);
+                setError("Failed to load recipes. Please try again.");
+                toast.error("Error", { description: "Failed to load recipes. Please try again." });
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [navigate]);
 
     const handleDeleteClick = (recipeId: string) => {
-        setRecipeToDelete(recipeId)
-        setDeleteDialogOpen(true)
-    }
+        setRecipeToDelete(recipeId);
+        setDeleteDialogOpen(true);
+    };
 
-    const confirmDelete = () => {
-        if (recipeToDelete) {
-            setRecipes(recipes.filter((recipe) => recipe.id !== recipeToDelete))
-            toast("Recipe deleted", {
+    const confirmDelete = async () => {
+        if (!recipeToDelete) return;
+
+        try {
+            await deleteDoc(doc(db, "recipes", recipeToDelete));
+            setRecipes(recipes.filter((recipe) => recipe.id !== recipeToDelete));
+            toast.success("Recipe deleted", {
                 description: "Your recipe has been deleted successfully.",
-            })
-            setDeleteDialogOpen(false)
-            setRecipeToDelete(null)
+            });
+        } catch (err: unknown) {
+            console.error("Error deleting recipe:", err);
+            toast.error("Error", { description: "Failed to delete recipe. Please try again." });
+        } finally {
+            setDeleteDialogOpen(false);
+            setRecipeToDelete(null);
         }
-    }
+    };
+
+    const handleSubmitForReview = async (recipeId: string) => {
+        try {
+            await setDoc(doc(db, "recipes", recipeId), { status: "pending" }, { merge: true });
+            setRecipes(
+                recipes.map((recipe) =>
+                    recipe.id === recipeId ? { ...recipe, status: "pending" } : recipe
+                )
+            );
+            toast.success("Recipe submitted", {
+                description: "Your recipe has been submitted for community review.",
+            });
+        } catch (err: unknown) {
+            console.error("Error submitting recipe for review:", err);
+            toast.error("Error", { description: "Failed to submit recipe for review. Please try again." });
+        }
+    };
 
     const getStatusBadge = (status: string) => {
         switch (status) {
             case "published":
-                return <Badge className="bg-green-500">Published</Badge>
+                return <Badge className="bg-green-500">Published</Badge>;
             case "draft":
-                return <Badge variant="outline">Draft</Badge>
+                return <Badge variant="outline">Draft</Badge>;
             case "pending":
-                return <Badge className="bg-amber-500">Pending Review</Badge>
+                return <Badge className="bg-amber-500">Pending Review</Badge>;
             default:
-                return null
+                return null;
         }
+    };
+
+    if (loading) {
+        return (
+            <>
+                <Navbar />
+                <div className="py-20 sm:py-32 container mx-auto px-4 md:px-6 max-w-6xl">
+                    <div className="container flex-1 items-start md:grid md:grid-cols-[220px_1fr] md:gap-6 lg:grid-cols-[240px_1fr] lg:gap-10 py-8">
+                        <Sidebar />
+                        <main className="flex w-full flex-col overflow-hidden">
+                            Loading recipes...
+                        </main>
+                    </div>
+                </div>
+                <Footer />
+            </>
+        );
     }
+
+    if (error) {
+        return (
+            <>
+                <Navbar />
+                <div className="py-20 sm:py-32 container mx-auto px-4 md:px-6 max-w-6xl">
+                    <div className="container flex-1 items-start md:grid md:grid-cols-[220px_1fr] md:gap-6 lg:grid-cols-[240px_1fr] lg:gap-10 py-8">
+                        <Sidebar />
+                        <main className="flex w-full flex-col overflow-hidden">
+                            {error}
+                            <Button onClick={() => window.location.reload()} className="mt-4">
+                                Retry
+                            </Button>
+                        </main>
+                    </div>
+                </div>
+                <Footer />
+            </>
+        );
+    }
+
     return (
         <>
             <Navbar />
-            <div className=" py-20 sm:py-32 container mx-auto px-4 md:px-6 max-w-6xl">
+            <div className="py-20 sm:py-32 container mx-auto px-4 md:px-6 max-w-6xl">
                 <div className="container flex-1 items-start md:grid md:grid-cols-[220px_1fr] md:gap-6 lg:grid-cols-[240px_1fr] lg:gap-10 py-8">
                     <Sidebar />
                     <main className="flex w-full flex-col overflow-hidden">
@@ -124,15 +216,21 @@ const MyRecipes = () => {
                                     recipes.map((recipe) => (
                                         <div key={recipe.id} className="flex border rounded-lg overflow-hidden">
                                             <div className="relative h-32 w-32 flex-shrink-0">
-                                                <img src={recipe.image || "/placeholder.svg"} alt={recipe.name} className="object-cover w-full h-full" />
+                                                <img
+                                                    src={recipe.image || "/placeholder.svg"}
+                                                    alt={recipe.name}
+                                                    className="object-cover w-full h-full"
+                                                />
                                             </div>
                                             <div className="flex-1 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                                 <div>
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <h3 className="font-medium">{recipe.name}</h3>
-                                                        {getStatusBadge(recipe.status)}
+                                                        {getStatusBadge(recipe.status || "draft")}
                                                     </div>
-                                                    <p className="text-sm text-gray-500">Added on {new Date(recipe.date).toLocaleDateString()}</p>
+                                                    <p className="text-sm text-gray-500">
+                                                        Added on {new Date(recipe.createdAt).toLocaleDateString()}
+                                                    </p>
                                                     {recipe.status === "published" && (
                                                         <div className="flex items-center gap-4 mt-2">
                                                             <span className="text-sm">{recipe.approvalRating}% Approval</span>
@@ -144,9 +242,16 @@ const MyRecipes = () => {
                                                     <Button variant="outline" size="sm" asChild>
                                                         <Link to={`/recipes/${recipe.id}`}>View</Link>
                                                     </Button>
-                                                    <Button variant="outline" size="sm" className="flex items-center gap-1">
-                                                        <Edit className="h-4 w-4" />
-                                                        Edit
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        asChild
+                                                        className="flex items-center gap-1"
+                                                    >
+                                                        <Link to={`/edit-recipe/${recipe.id}`}>
+                                                            <Edit className="h-4 w-4" />
+                                                            Edit
+                                                        </Link>
                                                     </Button>
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
@@ -171,8 +276,10 @@ const MyRecipes = () => {
                                         <p className="text-gray-500 mb-6">
                                             Start sharing your favorite Sierra Leonean recipes with the community
                                         </p>
-                                        <Link to="/submit">
-                                            <Button className="bg-[#0C713D] hover:bg-[#095e32]">Create Your First Recipe</Button>
+                                        <Link to="/submit-recipe">
+                                            <Button className="bg-[#0C713D] hover:bg-[#095e32]">
+                                                Create Your First Recipe
+                                            </Button>
                                         </Link>
                                     </div>
                                 )}
@@ -186,15 +293,21 @@ const MyRecipes = () => {
                                             .map((recipe) => (
                                                 <div key={recipe.id} className="flex border rounded-lg overflow-hidden">
                                                     <div className="relative h-32 w-32 flex-shrink-0">
-                                                        <img src={recipe.image || "/placeholder.svg"} alt={recipe.name} className="object-cover w-full h-full" />
+                                                        <img
+                                                            src={recipe.image || "/placeholder.svg"}
+                                                            alt={recipe.name}
+                                                            className="object-cover w-full h-full"
+                                                        />
                                                     </div>
                                                     <div className="flex-1 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                                         <div>
                                                             <div className="flex items-center gap-2 mb-1">
                                                                 <h3 className="font-medium">{recipe.name}</h3>
-                                                                {getStatusBadge(recipe.status)}
+                                                                {getStatusBadge(recipe.status || "draft")}
                                                             </div>
-                                                            <p className="text-sm text-gray-500">Added on {new Date(recipe.date).toLocaleDateString()}</p>
+                                                            <p className="text-sm text-gray-500">
+                                                                Added on {new Date(recipe.createdAt).toLocaleDateString()}
+                                                            </p>
                                                             <div className="flex items-center gap-4 mt-2">
                                                                 <span className="text-sm">{recipe.approvalRating}% Approval</span>
                                                                 <span className="text-sm">{recipe.votes} Votes</span>
@@ -204,9 +317,16 @@ const MyRecipes = () => {
                                                             <Button variant="outline" size="sm" asChild>
                                                                 <Link to={`/recipes/${recipe.id}`}>View</Link>
                                                             </Button>
-                                                            <Button variant="outline" size="sm" className="flex items-center gap-1">
-                                                                <Edit className="h-4 w-4" />
-                                                                Edit
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                asChild
+                                                                className="flex items-center gap-1"
+                                                            >
+                                                                <Link to={`/edit-recipe/${recipe.id}`}>
+                                                                    <Edit className="h-4 w-4" />
+                                                                    Edit
+                                                                </Link>
                                                             </Button>
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
@@ -242,24 +362,39 @@ const MyRecipes = () => {
                                             .map((recipe) => (
                                                 <div key={recipe.id} className="flex border rounded-lg overflow-hidden">
                                                     <div className="relative h-32 w-32 flex-shrink-0">
-                                                        <img src={recipe.image || "/placeholder.svg"} alt={recipe.name}  className="object-cover w-full h-full" />
+                                                        <img
+                                                            src={recipe.image || "/Images/placeholder.jpg"}
+                                                            alt={recipe.name}
+                                                            className="object-cover w-full h-full"
+                                                        />
                                                     </div>
                                                     <div className="flex-1 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                                         <div>
                                                             <div className="flex items-center gap-2 mb-1">
                                                                 <h3 className="font-medium">{recipe.name}</h3>
-                                                                {getStatusBadge(recipe.status)}
+                                                                {getStatusBadge(recipe.status || "draft")}
                                                             </div>
                                                             <p className="text-sm text-gray-500">
-                                                                Last edited on {new Date(recipe.date).toLocaleDateString()}
+                                                                Last edited on {new Date(recipe.createdAt).toLocaleDateString()}
                                                             </p>
                                                         </div>
                                                         <div className="flex items-center gap-2">
-                                                            <Button variant="outline" size="sm" className="flex items-center gap-1">
-                                                                <Edit className="h-4 w-4" />
-                                                                Continue Editing
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                asChild
+                                                                className="flex items-center gap-1"
+                                                            >
+                                                                <Link to={`/edit-recipe/${recipe.id}`}>
+                                                                    <Edit className="h-4 w-4" />
+                                                                    Continue Editing
+                                                                </Link>
                                                             </Button>
-                                                            <Button size="sm" className="bg-[#0C713D] hover:bg-[#095e32]">
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-[#0C713D] hover:bg-[#095e32]"
+                                                                onClick={() => handleSubmitForReview(recipe.id)}
+                                                            >
                                                                 Submit for Review
                                                             </Button>
                                                             <DropdownMenu>
@@ -296,18 +431,24 @@ const MyRecipes = () => {
                                             .map((recipe) => (
                                                 <div key={recipe.id} className="flex border rounded-lg overflow-hidden">
                                                     <div className="relative h-32 w-32 flex-shrink-0">
-                                                        <img src={recipe.image || "/placeholder.svg"} alt={recipe.name} className="object-cover w-full h-full" />
+                                                        <img
+                                                            src={recipe.image || "/placeholder.svg"}
+                                                            alt={recipe.name}
+                                                            className="object-cover w-full h-full"
+                                                        />
                                                     </div>
                                                     <div className="flex-1 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                                         <div>
                                                             <div className="flex items-center gap-2 mb-1">
                                                                 <h3 className="font-medium">{recipe.name}</h3>
-                                                                {getStatusBadge(recipe.status)}
+                                                                {getStatusBadge(recipe.status || "draft")}
                                                             </div>
                                                             <p className="text-sm text-gray-500">
-                                                                Submitted on {new Date(recipe.date).toLocaleDateString()}
+                                                                Submitted on {new Date(recipe.createdAt).toLocaleDateString()}
                                                             </p>
-                                                            <p className="text-sm text-amber-600 mt-1">Your recipe is being reviewed by the community</p>
+                                                            <p className="text-sm text-amber-600 mt-1">
+                                                                Your recipe is being reviewed by the community
+                                                            </p>
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <Button variant="outline" size="sm" asChild>
@@ -334,7 +475,9 @@ const MyRecipes = () => {
                                 ) : (
                                     <div className="text-center py-12">
                                         <h3 className="text-lg font-medium mb-2">No pending recipes</h3>
-                                        <p className="text-gray-500 mb-6">Recipes awaiting community review will appear here</p>
+                                        <p className="text-gray-500 mb-6">
+                                            Recipes awaiting community review will appear here
+                                        </p>
                                     </div>
                                 )}
                             </TabsContent>
@@ -350,7 +493,10 @@ const MyRecipes = () => {
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={confirmDelete} className="bg-red-500 hover:bg-red-600">
+                                    <AlertDialogAction
+                                        onClick={confirmDelete}
+                                        className="bg-red-500 hover:bg-red-600"
+                                    >
                                         Delete
                                     </AlertDialogAction>
                                 </AlertDialogFooter>
@@ -358,11 +504,10 @@ const MyRecipes = () => {
                         </AlertDialog>
                     </main>
                 </div>
-
-            </div >
+            </div>
             <Footer />
         </>
-    )
-}
+    );
+};
 
-export default MyRecipes
+export default MyRecipes;

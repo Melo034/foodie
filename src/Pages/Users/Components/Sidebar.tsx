@@ -8,17 +8,17 @@ const sidebarNavItems = [
     {
         title: "Profile",
         icon: <User className="h-4 w-4" />,
-        href: "/profile",
+        href: "/account/profile",
     },
     {
         title: "Security",
         icon: <Shield className="h-4 w-4" />,
-        href: "/change-password",
+        href: "/account/password-settings",
     },
     {
         title: "My Recipes",
         icon: <ForkKnife className="h-4 w-4" />,
-        href: "/my-recipes",
+        href: "/account/my-recipes",
     },
 ];
 
@@ -35,7 +35,7 @@ const Sidebar = () => {
                         <Button
                             key={item.href}
                             className={`justify-start ${activeTab === item.href
-                                    ? "bg-[#095e32] text-white"
+                                    ? "bg-[#095e32] text-white shadow-2xl hover:bg-[#0C713D]"
                                     : "bg-white text-black shadow-2xl hover:bg-[#0C713D] hover:text-white "
                                 }`}
                             asChild
