@@ -1,0 +1,368 @@
+import { useState } from "react"
+import { Link } from "react-router-dom"
+import { Edit, Trash2, Plus, MoreHorizontal } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { toast } from "sonner"
+import { Footer } from "@/components/utils/Footer"
+import Sidebar from "../Components/Sidebar"
+import { Navbar } from "@/components/utils/Navbar"
+
+// Mock data for user's recipes
+const userRecipes = [
+    {
+        id: "user-1",
+        name: "Homemade Jollof Rice",
+        image: "/images/jollof-rice.jpg",
+        status: "published",
+        approvalRating: 87,
+        votes: 34,
+        date: "2023-10-15",
+    },
+    {
+        id: "user-2",
+        name: "Cassava Leaf Stew",
+        image: "/images/cassava-leaf.jpg",
+        status: "published",
+        approvalRating: 92,
+        votes: 45,
+        date: "2023-09-22",
+    },
+    {
+        id: "user-3",
+        name: "Spicy Groundnut Soup",
+        image: "/images/groundnut-stew.jpg",
+        status: "draft",
+        approvalRating: 0,
+        votes: 0,
+        date: "2023-11-05",
+    },
+    {
+        id: "user-4",
+        name: "Sweet Potato Pudding",
+        image: "/placeholder.svg?height=200&width=300",
+        status: "pending",
+        approvalRating: 0,
+        votes: 0,
+        date: "2023-11-10",
+    },
+]
+
+const MyRecipes = () => {
+    const [recipes, setRecipes] = useState(userRecipes)
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const [recipeToDelete, setRecipeToDelete] = useState<string | null>(null)
+
+    const handleDeleteClick = (recipeId: string) => {
+        setRecipeToDelete(recipeId)
+        setDeleteDialogOpen(true)
+    }
+
+    const confirmDelete = () => {
+        if (recipeToDelete) {
+            setRecipes(recipes.filter((recipe) => recipe.id !== recipeToDelete))
+            toast("Recipe deleted", {
+                description: "Your recipe has been deleted successfully.",
+            })
+            setDeleteDialogOpen(false)
+            setRecipeToDelete(null)
+        }
+    }
+
+    const getStatusBadge = (status: string) => {
+        switch (status) {
+            case "published":
+                return <Badge className="bg-green-500">Published</Badge>
+            case "draft":
+                return <Badge variant="outline">Draft</Badge>
+            case "pending":
+                return <Badge className="bg-amber-500">Pending Review</Badge>
+            default:
+                return null
+        }
+    }
+    return (
+        <>
+            <Navbar />
+            <div className=" py-20 sm:py-32 container mx-auto px-4 md:px-6 max-w-6xl">
+                <div className="container flex-1 items-start md:grid md:grid-cols-[220px_1fr] md:gap-6 lg:grid-cols-[240px_1fr] lg:gap-10 py-8">
+                    <Sidebar />
+                    <main className="flex w-full flex-col overflow-hidden">
+                        <div className="flex justify-between items-center mb-6">
+                            <h1 className="text-2xl font-bold">My Recipes</h1>
+                            <Link to="/submit-recipe">
+                                <Button className="bg-[#0C713D] hover:bg-[#095e32]">
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    New Recipe
+                                </Button>
+                            </Link>
+                        </div>
+
+                        <Tabs defaultValue="all" className="w-full">
+                            <TabsList className="mb-6">
+                                <TabsTrigger value="all">All Recipes</TabsTrigger>
+                                <TabsTrigger value="published">Published</TabsTrigger>
+                                <TabsTrigger value="drafts">Drafts</TabsTrigger>
+                                <TabsTrigger value="pending">Pending Review</TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="all" className="space-y-6">
+                                {recipes.length > 0 ? (
+                                    recipes.map((recipe) => (
+                                        <div key={recipe.id} className="flex border rounded-lg overflow-hidden">
+                                            <div className="relative h-32 w-32 flex-shrink-0">
+                                                <img src={recipe.image || "/placeholder.svg"} alt={recipe.name} className="object-cover w-full h-full" />
+                                            </div>
+                                            <div className="flex-1 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h3 className="font-medium">{recipe.name}</h3>
+                                                        {getStatusBadge(recipe.status)}
+                                                    </div>
+                                                    <p className="text-sm text-gray-500">Added on {new Date(recipe.date).toLocaleDateString()}</p>
+                                                    {recipe.status === "published" && (
+                                                        <div className="flex items-center gap-4 mt-2">
+                                                            <span className="text-sm">{recipe.approvalRating}% Approval</span>
+                                                            <span className="text-sm">{recipe.votes} Votes</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Button variant="outline" size="sm" asChild>
+                                                        <Link to={`/recipes/${recipe.id}`}>View</Link>
+                                                    </Button>
+                                                    <Button variant="outline" size="sm" className="flex items-center gap-1">
+                                                        <Edit className="h-4 w-4" />
+                                                        Edit
+                                                    </Button>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => handleDeleteClick(recipe.id)}>
+                                                                <Trash2 className="h-4 w-4 mr-2 text-red-500" />
+                                                                <span className="text-red-500">Delete</span>
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <h3 className="text-lg font-medium mb-2">No recipes yet</h3>
+                                        <p className="text-gray-500 mb-6">
+                                            Start sharing your favorite Sierra Leonean recipes with the community
+                                        </p>
+                                        <Link to="/submit">
+                                            <Button className="bg-[#0C713D] hover:bg-[#095e32]">Create Your First Recipe</Button>
+                                        </Link>
+                                    </div>
+                                )}
+                            </TabsContent>
+
+                            <TabsContent value="published">
+                                {recipes.filter((r) => r.status === "published").length > 0 ? (
+                                    <div className="space-y-6">
+                                        {recipes
+                                            .filter((r) => r.status === "published")
+                                            .map((recipe) => (
+                                                <div key={recipe.id} className="flex border rounded-lg overflow-hidden">
+                                                    <div className="relative h-32 w-32 flex-shrink-0">
+                                                        <img src={recipe.image || "/placeholder.svg"} alt={recipe.name} className="object-cover w-full h-full" />
+                                                    </div>
+                                                    <div className="flex-1 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h3 className="font-medium">{recipe.name}</h3>
+                                                                {getStatusBadge(recipe.status)}
+                                                            </div>
+                                                            <p className="text-sm text-gray-500">Added on {new Date(recipe.date).toLocaleDateString()}</p>
+                                                            <div className="flex items-center gap-4 mt-2">
+                                                                <span className="text-sm">{recipe.approvalRating}% Approval</span>
+                                                                <span className="text-sm">{recipe.votes} Votes</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Button variant="outline" size="sm" asChild>
+                                                                <Link to={`/recipes/${recipe.id}`}>View</Link>
+                                                            </Button>
+                                                            <Button variant="outline" size="sm" className="flex items-center gap-1">
+                                                                <Edit className="h-4 w-4" />
+                                                                Edit
+                                                            </Button>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => handleDeleteClick(recipe.id)}>
+                                                                        <Trash2 className="h-4 w-4 mr-2 text-red-500" />
+                                                                        <span className="text-red-500">Delete</span>
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <h3 className="text-lg font-medium mb-2">No published recipes</h3>
+                                        <p className="text-gray-500 mb-6">Your published recipes will appear here</p>
+                                    </div>
+                                )}
+                            </TabsContent>
+
+                            <TabsContent value="drafts">
+                                {recipes.filter((r) => r.status === "draft").length > 0 ? (
+                                    <div className="space-y-6">
+                                        {recipes
+                                            .filter((r) => r.status === "draft")
+                                            .map((recipe) => (
+                                                <div key={recipe.id} className="flex border rounded-lg overflow-hidden">
+                                                    <div className="relative h-32 w-32 flex-shrink-0">
+                                                        <img src={recipe.image || "/placeholder.svg"} alt={recipe.name}  className="object-cover w-full h-full" />
+                                                    </div>
+                                                    <div className="flex-1 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h3 className="font-medium">{recipe.name}</h3>
+                                                                {getStatusBadge(recipe.status)}
+                                                            </div>
+                                                            <p className="text-sm text-gray-500">
+                                                                Last edited on {new Date(recipe.date).toLocaleDateString()}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Button variant="outline" size="sm" className="flex items-center gap-1">
+                                                                <Edit className="h-4 w-4" />
+                                                                Continue Editing
+                                                            </Button>
+                                                            <Button size="sm" className="bg-[#0C713D] hover:bg-[#095e32]">
+                                                                Submit for Review
+                                                            </Button>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => handleDeleteClick(recipe.id)}>
+                                                                        <Trash2 className="h-4 w-4 mr-2 text-red-500" />
+                                                                        <span className="text-red-500">Delete</span>
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <h3 className="text-lg font-medium mb-2">No draft recipes</h3>
+                                        <p className="text-gray-500 mb-6">Your draft recipes will appear here</p>
+                                    </div>
+                                )}
+                            </TabsContent>
+
+                            <TabsContent value="pending">
+                                {recipes.filter((r) => r.status === "pending").length > 0 ? (
+                                    <div className="space-y-6">
+                                        {recipes
+                                            .filter((r) => r.status === "pending")
+                                            .map((recipe) => (
+                                                <div key={recipe.id} className="flex border rounded-lg overflow-hidden">
+                                                    <div className="relative h-32 w-32 flex-shrink-0">
+                                                        <img src={recipe.image || "/placeholder.svg"} alt={recipe.name} className="object-cover w-full h-full" />
+                                                    </div>
+                                                    <div className="flex-1 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h3 className="font-medium">{recipe.name}</h3>
+                                                                {getStatusBadge(recipe.status)}
+                                                            </div>
+                                                            <p className="text-sm text-gray-500">
+                                                                Submitted on {new Date(recipe.date).toLocaleDateString()}
+                                                            </p>
+                                                            <p className="text-sm text-amber-600 mt-1">Your recipe is being reviewed by the community</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Button variant="outline" size="sm" asChild>
+                                                                <Link to={`/recipes/${recipe.id}`}>Preview</Link>
+                                                            </Button>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => handleDeleteClick(recipe.id)}>
+                                                                        <Trash2 className="h-4 w-4 mr-2 text-red-500" />
+                                                                        <span className="text-red-500">Delete</span>
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12">
+                                        <h3 className="text-lg font-medium mb-2">No pending recipes</h3>
+                                        <p className="text-gray-500 mb-6">Recipes awaiting community review will appear here</p>
+                                    </div>
+                                )}
+                            </TabsContent>
+                        </Tabs>
+
+                        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete your recipe from our servers.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={confirmDelete} className="bg-red-500 hover:bg-red-600">
+                                        Delete
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </main>
+                </div>
+
+            </div >
+            <Footer />
+        </>
+    )
+}
+
+export default MyRecipes

@@ -1,52 +1,54 @@
-# Foodie
+# React + TypeScript + Vite
 
-This is a web application built with React and Firebase that serves as a directory for Recipes in  Sierra Leone. It provides key information about recipes and allows users to submit and vote on recipes Authenticity. The application uses Firebase for data storage and management.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Technologies Used
+Currently, two official plugins are available:
 
-- **React**: A JavaScript library for building user interfaces.
-- **Firebase SDK**: Used for backend services such as Firestore for data storage.
-- **Tailwind CSS**: A utility-first CSS framework for styling.
-- **React Router**: For navigation within the application.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-## Setup
+## Expanding the ESLint configuration
 
-### Prerequisites
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-- **Node.js** (v14 or higher)
-- **npm** or **yarn**
+```js
+export default tseslint.config({
+  extends: [
+    // Remove ...tseslint.configs.recommended and replace with this
+    ...tseslint.configs.recommendedTypeChecked,
+    // Alternatively, use this for stricter rules
+    ...tseslint.configs.strictTypeChecked,
+    // Optionally, add this for stylistic rules
+    ...tseslint.configs.stylisticTypeChecked,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
+```
 
-### Installation
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/Melo034/foodie.git
-   cd foodie
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-2. **Install Dependencies**:
-
-   ```bash
-   npm install
-   # OR
-   yarn install
-
-2. **Set up Firebase**:
-
-- Go to the Firebase Console and create a new project.
-- Enable the necessary services (e.g., Firestore).
-- Obtain your Firebase configuration object from the Firebase Console.
-- Create a .env file in the root of the project and add your Firebase config as follows
-
-  ```bash
-  VITE_API_KEY=your_firebase_api_key
-  VITE_AUTH_DOMAIN=your_firebase_auth_domain
-  VITE_PROJECT_ID=your_firebase_project_id
-  VITE_STORAGE_BUCKET=your_firebase_storage_bucket
-  VITE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
-  VITE_APP_ID=your_firebase_app_id
-
-3. **Run the server**:
-   ```bash
-   npm run dev
-   # OR
-   yarn run dev
+export default tseslint.config({
+  plugins: {
+    // Add the react-x and react-dom plugins
+    'react-x': reactX,
+    'react-dom': reactDom,
+  },
+  rules: {
+    // other rules...
+    // Enable its recommended typescript rules
+    ...reactX.configs['recommended-typescript'].rules,
+    ...reactDom.configs.recommended.rules,
+  },
+})
+```
