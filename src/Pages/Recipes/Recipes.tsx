@@ -426,7 +426,7 @@ const Recipes = () => {
                       </div>
                     </div>
                     <SheetFooter className="flex flex-row justify-between sm:justify-between gap-2">
-                      <Button variant="outline" onClick={clearFilters}>
+                      <Button variant="outline" onClick={clearFilters} className="bg-[#0C713D] hover:bg-[#095e32]">
                         Clear All
                       </Button>
                       <SheetClose asChild>
@@ -471,7 +471,7 @@ const Recipes = () => {
                     <X className="h-3 w-3 cursor-pointer" onClick={() => toggleAuthorFilter(author)} />
                   </Badge>
                 ))}
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 px-2">
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 px-2 text-white hover:text-white bg-[#0C713D] hover:bg-[#095e32]">
                   Clear All
                 </Button>
               </div>
@@ -488,7 +488,7 @@ const Recipes = () => {
               <div className="text-center py-12">
                 <h3 className="text-xl font-medium mb-2">No recipes found</h3>
                 <p className="text-gray-500 mb-6">Try adjusting your search or filters</p>
-                <Button onClick={clearFilters}>Clear All Filters</Button>
+                <Button onClick={clearFilters} className="bg-[#0C713D] hover:bg-[#095e32]">Clear All Filters</Button>
               </div>
             )}
 

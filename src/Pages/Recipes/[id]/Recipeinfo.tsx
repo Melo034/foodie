@@ -9,7 +9,7 @@ import { Recipe, Comment } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/utils/Navbar";
 import { Footer } from "@/components/utils/Footer";
-import { doc, getDoc, collection, query, where, getDocs, limit, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, limit, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db, auth } from "@/server/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { toast, Toaster } from "sonner";
@@ -89,7 +89,7 @@ const Recipeinfo = () => {
               : recipeData.createdAt.toDate().toISOString()
             : new Date().toISOString(),
           approvalRating: recipeData.approvalRating || 0,
-          voteCount: recipeData.voteCount || recipeData.votes || 0, // Fallback to old votes field
+          voteCount: recipeData.voteCount || recipeData.votes || 0,
           ingredients: recipeData.ingredients && Array.isArray(recipeData.ingredients) ? recipeData.ingredients : [],
           instructions: recipeData.instructions && Array.isArray(recipeData.instructions) ? recipeData.instructions : [],
           tips: recipeData.tips && Array.isArray(recipeData.tips) ? recipeData.tips : undefined,
@@ -107,7 +107,7 @@ const Recipeinfo = () => {
           votes: recipeData.votes && Array.isArray(recipeData.votes)
             ? recipeData.votes
             : recipeData.voters && Array.isArray(recipeData.voters)
-              ? recipeData.voters.map((userId: string) => ({ userId, type: "up" })) // Migrate old voters
+              ? recipeData.voters.map((userId: string) => ({ userId, type: "up" }))
               : [],
         };
         setRecipe(normalizedRecipe);
@@ -181,8 +181,7 @@ const Recipeinfo = () => {
     fetchData();
   }, [id]);
 
-  // Handle voting (upvote or downvote)
-  const handleVote = async (voteType: "up" | "down") => {
+  const handleVote = async (action: "up" | "down" | "unvote") => {
     if (!user) {
       toast.error("Login Required", {
         description: "You must be logged in to vote.",
@@ -192,49 +191,104 @@ const Recipeinfo = () => {
     }
     if (!recipe || !id) return;
 
-    // Check if user has already voted
     const userVote = recipe.votes?.find((vote) => vote.userId === user.id);
-    if (userVote) {
-      toast.error("Already Voted", {
-        description: "You have already voted for this recipe.",
-      });
-      return;
-    }
+    const recipeRef = doc(db, "recipes", id);
 
     try {
-      // Calculate new approval rating
-      const ratingChange = voteType === "up" ? 1 : -1;
-      const newApprovalRating = Math.max(0, Math.min(100, recipe.approvalRating + ratingChange));
-
-      // Update Firestore
-      await updateDoc(doc(db, "recipes", id), {
-        voteCount: recipe.voteCount + 1,
-        approvalRating: newApprovalRating,
-        votes: arrayUnion({ userId: user.id, type: voteType }),
-      });
-
-      // Update local state
-      setRecipe((prev) =>
-        prev
-          ? {
-              ...prev,
-              voteCount: prev.voteCount + 1,
-              approvalRating: newApprovalRating,
-              votes: [...(prev.votes || []), { userId: user.id, type: voteType }],
-            }
-          : prev
-      );
-
-      toast.success("Success", {
-        description: `Your ${voteType === "up" ? "upvote" : "downvote"} has been recorded!`,
-      });
+      if (action === "unvote" && userVote) {
+        await updateDoc(recipeRef, {
+          votes: arrayRemove(userVote),
+          voteCount: recipe.voteCount - 1,
+          approvalRating: Math.max(
+            0,
+            Math.min(
+              100,
+              recipe.approvalRating + (userVote.type === "up" ? -1 : 1)
+            )
+          ),
+        });
+        setRecipe((prev) =>
+          prev
+            ? {
+                ...prev,
+                votes: prev.votes?.filter((vote) => vote.userId !== user.id) || [],
+                voteCount: prev.voteCount - 1,
+                approvalRating: Math.max(
+                  0,
+                  Math.min(
+                    100,
+                    prev.approvalRating + (userVote.type === "up" ? -1 : 1)
+                  )
+                ),
+              }
+            : prev
+        );
+        toast.success("Success", { description: "Your vote has been removed." });
+      } else if (action === "up" || action === "down") {
+        if (userVote) {
+          if (userVote.type === action) {
+            return;
+          }
+          const ratingChange = action === "up" ? 2 : -2; 
+          await updateDoc(recipeRef, {
+            votes: arrayUnion({ userId: user.id, type: action }),
+            approvalRating: Math.max(
+              0,
+              Math.min(100, recipe.approvalRating + ratingChange)
+            ),
+          });
+          setRecipe((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  votes: [
+                    ...(prev.votes?.filter((vote) => vote.userId !== user.id) || []),
+                    { userId: user.id, type: action },
+                  ],
+                  approvalRating: Math.max(
+                    0,
+                    Math.min(100, prev.approvalRating + ratingChange)
+                  ),
+                }
+              : prev
+          );
+          toast.success("Success", {
+            description: `Changed to ${action === "up" ? "upvote" : "downvote"}!`,
+          });
+        } else {
+          const ratingChange = action === "up" ? 1 : -1;
+          await updateDoc(recipeRef, {
+            voteCount: recipe.voteCount + 1,
+            approvalRating: Math.max(
+              0,
+              Math.min(100, recipe.approvalRating + ratingChange)
+            ),
+            votes: arrayUnion({ userId: user.id, type: action }),
+          });
+          setRecipe((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  voteCount: prev.voteCount + 1,
+                  approvalRating: Math.max(
+                    0,
+                    Math.min(100, prev.approvalRating + ratingChange)
+                  ),
+                  votes: [...(prev.votes || []), { userId: user.id, type: action }],
+                }
+              : prev
+          );
+          toast.success("Success", {
+            description: `Your ${action === "up" ? "upvote" : "downvote"} has been recorded!`,
+          });
+        }
+      }
     } catch (err) {
       console.error("Error voting:", err);
-      toast.error("Error", { description: "Failed to record vote. Please try again." });
+      toast.error("Error", { description: "Failed to update vote. Please try again." });
     }
   };
 
-  // Handle comment submission
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -275,7 +329,6 @@ const Recipeinfo = () => {
     }
   };
 
-  // Handle sharing
   const handleShare = async () => {
     const shareData = {
       title: recipe?.name,
@@ -332,7 +385,6 @@ const Recipeinfo = () => {
 
   // Determine if user has voted and vote type
   const userVote = recipe.votes?.find((vote) => vote.userId === user?.id);
-  const hasVoted = !!userVote;
 
   return (
     <>
@@ -451,19 +503,19 @@ const Recipeinfo = () => {
               {/* Actions */}
               <div className="flex flex-wrap gap-4">
                 <Button
-                  className="flex gap-2 bg-[#0C713D] hover:bg-[#095e32]"
-                  onClick={() => handleVote("up")}
-                  disabled={hasVoted}
-                  aria-label="Upvote this recipe"
+                  className={`flex gap-2 ${userVote?.type === "up" ? "bg-[#0C713D] hover:bg-[#095e32]" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}`}
+                  onClick={() => handleVote(userVote?.type === "up" ? "unvote" : "up")}
+                  disabled={!user}
+                  aria-label={userVote?.type === "up" ? "Undo upvote" : "Upvote this recipe"}
                 >
                   <ThumbsUp className="h-4 w-4" />
                   {userVote?.type === "up" ? "Upvoted" : "Upvote"}
                 </Button>
                 <Button
-                  className="flex gap-2 bg-red-600 hover:bg-red-700"
-                  onClick={() => handleVote("down")}
-                  disabled={hasVoted}
-                  aria-label="Downvote this recipe"
+                  className={`flex gap-2 ${userVote?.type === "down" ? "bg-red-600 hover:bg-red-700" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}`}
+                  onClick={() => handleVote(userVote?.type === "down" ? "unvote" : "down")}
+                  disabled={!user}
+                  aria-label={userVote?.type === "down" ? "Undo downvote" : "Downvote this recipe"}
                 >
                   <ThumbsDown className="h-4 w-4" />
                   {userVote?.type === "down" ? "Downvoted" : "Downvote"}
@@ -573,7 +625,7 @@ const Recipeinfo = () => {
                       <div key={similarRecipe.id} className="flex gap-4">
                         <div className="relative h-20 w-20 flex-shrink-0 rounded-md overflow-hidden">
                           <img
-                            src={similarRecipe.image || "/placeholder.svg"}
+                            src={similarRecipe.image || "/Images/placeholder.jpg"}
                             alt={similarRecipe.name}
                             className="object-cover w-full h-full"
                           />
