@@ -371,7 +371,7 @@ const Recipeinfo = () => {
                   <span className="font-medium">Community Approval</span>
                   <span className="font-bold">{recipe.approvalRating}%</span>
                 </div>
-                <Progress value={recipe.approvalRating} className="h-2" />
+                <Progress value={recipe.approvalRating} className="h-2 [&>div]:bg-[#0C713D]" />
                 <div className="flex justify-between mt-2 text-sm text-gray-500">
                   <span>{recipe.voteCount} votes</span>
                   {recipe.approvalRating >= 70 && <span className="text-[#0C713D] font-medium">Verified Recipe</span>}
@@ -381,7 +381,7 @@ const Recipeinfo = () => {
               {/* Recipe Image */}
               <div className="relative h-[400px] rounded-xl overflow-hidden mb-8">
                 <img
-                  src={recipe.image || "/placeholder.svg"}
+                  src={recipe.image || "/Images/placeholder.jpg"}
                   alt={recipe.name}
                   className="object-cover w-full h-full"
                 />
