@@ -67,6 +67,7 @@ Before you begin, ensure you have the following installed:
     *   Create a `.env` file in the root directory of the project.
     *   Add your Firebase project credentials to the `.env` file.  These values should match the `firebaseConfig` object found in `src/server/firebase.ts`.
 
+
     ```
     VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY
     VITE_FIREBASE_AUTH_DOMAIN=YOUR_FIREBASE_AUTH_DOMAIN
