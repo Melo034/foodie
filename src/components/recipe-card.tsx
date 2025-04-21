@@ -6,11 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Recipe } from "@/lib/types";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/server/firebase";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 
 interface RecipeCardProps {
   recipe?: Recipe;
-  recipeId?: string; 
+  recipeId?: string;
 }
 
 export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
@@ -31,7 +31,7 @@ export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
         }
 
         const data = recipeDoc.data();
-        // Normalize data to match Recipe type
+        // Normalize data to match updated Recipe type
         const normalizedRecipe: Recipe = {
           id: recipeDoc.id,
           name: data.name || "Untitled Recipe",
@@ -46,7 +46,7 @@ export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
               : data.createdAt.toDate().toISOString()
             : new Date().toISOString(),
           approvalRating: data.approvalRating || 0,
-          votes: data.votes || 0,
+          voteCount: data.voteCount || data.votes || 0, // Fallback to old votes field if migration not complete
           ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
           instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
           tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
@@ -60,6 +60,12 @@ export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
               }
             : { id: "unknown", name: "Anonymous User", recipesCount: 0 },
           comments: data.comments && Array.isArray(data.comments) ? data.comments : [],
+          status: data.status || "published",
+          votes: data.votes && Array.isArray(data.votes)
+            ? data.votes
+            : data.voters && Array.isArray(data.voters)
+              ? data.voters.map((userId: string) => ({ userId, type: "up" })) // Migrate old voters
+              : [],
         };
         setRecipe(normalizedRecipe);
       } catch (err: unknown) {
@@ -128,7 +134,8 @@ export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
               <span>Community Rating</span>
               <span className="font-medium">{recipe.approvalRating}%</span>
             </div>
-            <Progress value={recipe.approvalRating} className="h-1" />
+            <Progress value={recipe.approvalRating} className="h-1 [&>div]:bg-[#0C713D]" />
+            <div className="text-xs text-gray-500 mt-1">{recipe.voteCount} votes</div>
           </div>
 
           {displayedCategories.length > 0 ? (
@@ -151,6 +158,7 @@ export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
           )}
         </div>
       </Link>
+      <Toaster richColors position="top-center" closeButton={false} />
     </div>
   );
 }

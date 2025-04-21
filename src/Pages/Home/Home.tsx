@@ -11,7 +11,7 @@ import { Navbar } from "@/components/utils/Navbar";
 import { Footer } from "@/components/utils/Footer";
 import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/server/firebase";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 
 const Home = () => {
   const [topRecipes, setTopRecipes] = useState<Recipe[]>([]);
@@ -129,8 +129,8 @@ const Home = () => {
               } as Recipe;
             });
             setTopRecipes(recipes);
-            toast.warning("Limited results", {
-              description: "Some sorting features are unavailable. Contact support to enable full functionality.",
+            toast.success("Welcome", {
+              description: "Explore traditional recipes, share your family favorites, and connect with a community of food lovers.",
             });
           } else {
             throw indexError;
@@ -261,6 +261,7 @@ const Home = () => {
         </section>
       </main>
       <Footer />
+      <Toaster richColors position="top-center" closeButton={true} />
     </div>
   );
 };

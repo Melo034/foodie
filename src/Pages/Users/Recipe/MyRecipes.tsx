@@ -20,7 +20,7 @@ import {
     AlertDialogTitle,
     AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import { Footer } from "@/components/utils/Footer";
 import Sidebar from "../Components/Sidebar";
 import { Navbar } from "@/components/utils/Navbar";
@@ -234,7 +234,7 @@ const MyRecipes = () => {
                                                     {recipe.status === "published" && (
                                                         <div className="flex items-center gap-4 mt-2">
                                                             <span className="text-sm">{recipe.approvalRating}% Approval</span>
-                                                            <span className="text-sm">{recipe.votes} Votes</span>
+                                                            <span className="text-sm">{recipe.voteCount} Votes</span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -310,7 +310,7 @@ const MyRecipes = () => {
                                                             </p>
                                                             <div className="flex items-center gap-4 mt-2">
                                                                 <span className="text-sm">{recipe.approvalRating}% Approval</span>
-                                                                <span className="text-sm">{recipe.votes} Votes</span>
+                                                                <span className="text-sm">{recipe.voteCount} Votes</span>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2">
@@ -506,6 +506,7 @@ const MyRecipes = () => {
                 </div>
             </div>
             <Footer />
+            <Toaster richColors position="top-center" closeButton={false} />
         </>
     );
 };

@@ -18,8 +18,10 @@ import { Navbar } from "./components/utils/Navbar";
 import { Footer } from "./components/utils/Footer";
 import EditRecipe from "./Pages/Submit/[username]/EditRecipe";
 import UsersProfiles from "./Pages/Users/UsersProfiles/[userId]/UsersProfiles";
+import LogOut from "./Pages/Auth/LogOut";
+import ForgotPassword from "./Pages/Auth/ForgotPassword";
+import ResetPassword from "./Pages/Auth/ResetPassword";
 
-const ForgotPassword = () => <div>Forgot Password Page (Placeholder)</div>;
 const NotFound = () => (
   <div className="container mx-auto px-4 py-64 text-center">
     <h1 className="text-3xl font-bold mb-4">404 - Page Not Found</h1>
@@ -44,7 +46,7 @@ const ProtectedRoute = () => {
   if (isAuthenticated === null) {
     return (
       <>
-        <Navbar/>
+        <Navbar />
         <div className="container mx-auto px-4 py-20 sm:py-32">
           <div className="max-w-3xl mx-auto">
             Loading...
@@ -74,15 +76,18 @@ function App() {
         <Route path="/account/my-recipes" element={<MyRecipes />} />
         <Route path="/account/password-settings" element={<PasswordSettings />} />
         <Route path="/submit-recipe" element={<SubmitRecipe />} />
-        <Route path="/edit-recipe/:id" element={<EditRecipe/>} />
+        <Route path="/edit-recipe/:id" element={<EditRecipe />} />
         <Route path="/submission-success" element={<SubmissionSuccess />} />
+
       </Route>
 
       {/* Auth Routes */}
       <Route path="/auth">
         <Route path="login" element={<Login />} />
         <Route path="signup" element={<SignUp />} />
+        <Route path="logout" element={<LogOut />} />
         <Route path="forgot-password" element={<ForgotPassword />} />
+        <Route path="reset-password" element={<ResetPassword />} />
       </Route>
 
       {/* 404 Route */}

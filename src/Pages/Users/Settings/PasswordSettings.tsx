@@ -4,7 +4,7 @@ import { Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import { Footer } from "@/components/utils/Footer";
 import { Navbar } from "@/components/utils/Navbar";
 import Sidebar from "../Components/Sidebar";
@@ -224,6 +224,7 @@ const PasswordSettings = () => {
         </div>
       </div>
       <Footer />
+       <Toaster richColors position="top-center" closeButton={false} />
     </>
   );
 };

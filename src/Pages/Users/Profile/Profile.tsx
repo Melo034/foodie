@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import { RecipeCard } from "@/components/recipe-card";
 import Sidebar from "../Components/Sidebar";
 import { Navbar } from "@/components/utils/Navbar";
@@ -366,6 +366,7 @@ const Profile = () => {
                 </div>
             </div>
             <Footer />
+            <Toaster richColors position="top-center" closeButton={false} />
         </>
     );
 };

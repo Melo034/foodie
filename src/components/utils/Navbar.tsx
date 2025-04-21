@@ -115,11 +115,18 @@ export const Navbar = () => {
                                         </Link>
                                     </Button>
                                 ) : (
-                                    <Button size="sm" variant={"outline"} className="rounded-full w-9 h-9">
-                                        <Link to="/account/profile">
-                                            <User2 />
-                                        </Link>
-                                    </Button>
+                                    <>
+                                        <Button size="sm" variant={"outline"} className="rounded-full w-9 h-9">
+                                            <Link to="/account/profile">
+                                                <User2 />
+                                            </Link>
+                                        </Button>
+                                        <Button size="sm" variant={"outline"} className="cursor-pointer">
+                                            <Link to="/auth/logout">
+                                            <span>Logout</span>
+                                            </Link>
+                                        </Button>
+                                    </>
                                 )}
                             </div>
                         </div>

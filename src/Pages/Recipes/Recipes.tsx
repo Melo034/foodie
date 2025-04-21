@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/server/firebase";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 
 const Recipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -63,7 +63,7 @@ const Recipes = () => {
             categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
             createdAt: data.createdAt ? (typeof data.createdAt === "string" ? data.createdAt : data.createdAt.toDate().toISOString()) : new Date().toISOString(),
             approvalRating: data.approvalRating || 0,
-            votes: data.votes || 0,
+            voteCount: data.voteCount || 0,
             ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
             instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
             tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
@@ -175,7 +175,7 @@ const Recipes = () => {
     // Sorting
     switch (sortBy) {
       case "popular":
-        result.sort((a, b) => b.approvalRating - a.approvalRating || b.votes - a.votes);
+        result.sort((a, b) => b.approvalRating - a.approvalRating || b.voteCount - a.voteCount);
         break;
       case "recent":
         result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -184,7 +184,7 @@ const Recipes = () => {
         result.sort((a, b) => a.cookTime - b.cookTime);
         break;
       case "rating":
-        result.sort((a, b) => b.votes - a.votes || b.approvalRating - a.approvalRating);
+        result.sort((a, b) => b.voteCount - a.voteCount || b.approvalRating - a.approvalRating);
         break;
     }
 
@@ -548,6 +548,7 @@ const Recipes = () => {
         )}
       </div>
       <Footer />
+      <Toaster richColors position="top-center" closeButton={false} />
     </>
   );
 };

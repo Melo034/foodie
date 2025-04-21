@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Recipe } from "@/lib/types";
 import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/server/firebase";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 
 interface FeaturedRecipeProps {
   recipe?: Recipe;
@@ -53,7 +53,7 @@ export function FeaturedRecipe({ recipe: propRecipe }: FeaturedRecipeProps) {
               : data.createdAt.toDate().toISOString()
             : new Date().toISOString(),
           approvalRating: data.approvalRating || 0,
-          votes: data.votes || 0,
+          voteCount: data.voteCount || data.votes || 0, // Fallback to old votes field if migration not complete
           ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
           instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
           tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
@@ -67,6 +67,12 @@ export function FeaturedRecipe({ recipe: propRecipe }: FeaturedRecipeProps) {
               }
             : { id: "unknown", name: "Anonymous User", recipesCount: 0 },
           comments: data.comments && Array.isArray(data.comments) ? data.comments : [],
+          status: data.status || "published",
+          votes: data.votes && Array.isArray(data.votes)
+            ? data.votes
+            : data.voters && Array.isArray(data.voters)
+              ? data.voters.map((userId: string) => ({ userId, type: "up" })) // Migrate old voters
+              : [],
         };
         setRecipe(normalizedRecipe);
       } catch (err: unknown) {
@@ -152,6 +158,7 @@ export function FeaturedRecipe({ recipe: propRecipe }: FeaturedRecipeProps) {
           </Button>
         </div>
       </div>
+      <Toaster richColors position="top-center" closeButton={false} />
     </div>
   );
 }
