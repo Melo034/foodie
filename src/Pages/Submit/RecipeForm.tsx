@@ -392,7 +392,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({ initialData = {}, onSubmit, mod
       <div className="pt-4">
         <Button
           type="submit"
-          className="w-full bg-[#0C713D] hover:bg-[#095e32]"
+          className="w-full bg-[#0C713D] hover:bg-[#095e32] cursor-pointer text-white"
           disabled={isSubmitting}
         >
           {isSubmitting ? (mode === "add" ? "Submitting..." : "Updating...") : mode === "add" ? "Submit Recipe" : "Update Recipe"}
