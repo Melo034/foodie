@@ -113,7 +113,9 @@ export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
             <span className="font-medium">{recipe.approvalRating}%</span>
           </div>
           <Progress value={recipe.approvalRating} className="h-1 [&>div]:bg-[#0C713D]" />
-          <div className="text-xs text-gray-500 mt-1">{recipe.voteCount} votes</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {recipe.voteCount} {recipe.voteCount === 1 ? 'vote' : 'votes'}
+          </div>
         </div>
 
         {displayedCategories.length > 0 ? (
