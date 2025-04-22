@@ -7,6 +7,8 @@ import { Recipe } from "@/lib/types";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/server/firebase";
 import { toast, Toaster } from "sonner";
+import { Button } from "@/components/ui/button";
+import { normalizeRecipe } from "@/utils/firestore";
 
 interface RecipeCardProps {
   recipe?: Recipe;
@@ -18,7 +20,6 @@ export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
   const [loading, setLoading] = useState(!propRecipe && !!recipeId);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch recipe if recipeId is provided and no propRecipe
   useEffect(() => {
     if (propRecipe || !recipeId) return;
 
@@ -29,44 +30,7 @@ export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
         if (!recipeDoc.exists()) {
           throw new Error("Recipe not found.");
         }
-
-        const data = recipeDoc.data();
-        // Normalize data to match updated Recipe type
-        const normalizedRecipe: Recipe = {
-          id: recipeDoc.id,
-          name: data.name || "Untitled Recipe",
-          description: data.description || "",
-          image: data.image || undefined,
-          cookTime: data.cookTime || 0,
-          servings: data.servings || 1,
-          categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
-          createdAt: data.createdAt
-            ? typeof data.createdAt === "string"
-              ? data.createdAt
-              : data.createdAt.toDate().toISOString()
-            : new Date().toISOString(),
-          approvalRating: data.approvalRating || 0,
-          voteCount: data.voteCount || data.votes || 0, // Fallback to old votes field if migration not complete
-          ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
-          instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
-          tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
-          author: data.author && data.author.id && data.author.name
-            ? {
-                id: data.author.id,
-                name: data.author.name,
-                avatar: data.author.avatar || undefined,
-                bio: data.author.bio || undefined,
-                recipesCount: data.author.recipesCount || 0,
-              }
-            : { id: "unknown", name: "Anonymous User", recipesCount: 0 },
-          comments: data.comments && Array.isArray(data.comments) ? data.comments : [],
-          status: data.status || "published",
-          votes: data.votes && Array.isArray(data.votes)
-            ? data.votes
-            : data.voters && Array.isArray(data.voters)
-              ? data.voters.map((userId: string) => ({ userId, type: "up" })) // Migrate old voters
-              : [],
-        };
+        const normalizedRecipe = normalizeRecipe(recipeDoc);
         setRecipe(normalizedRecipe);
       } catch (err: unknown) {
         console.error("Error fetching recipe:", err);
@@ -85,12 +49,20 @@ export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
   }
 
   if (error) {
-    return <div className="text-center p-4 text-red-600">{error}</div>;
+    return (
+      <div className="text-center p-4 text-red-600">
+        {error}
+        <Button onClick={() => window.location.reload()} className="mt-2">Retry</Button>
+      </div>
+    );
   }
 
-  if (!recipe || !recipe.author) {
-    console.warn("RecipeCard: Missing recipe or author data");
+  if (!recipe) {
+    toast.warning("RecipeCard", { description: "Missing recipe data" });
     return null;
+  }
+  if (recipe.author.id === "unknown") {
+    toast.warning("RecipeCard", { description: "Recipe has default anonymous author" });
   }
 
   // Normalize categories to prevent TypeError
@@ -108,56 +80,61 @@ export function RecipeCard({ recipe: propRecipe, recipeId }: RecipeCardProps) {
           />
           {recipe.approvalRating >= 70 && (
             <div className="absolute top-2 right-2">
-              <Badge className="bg-[#0C713D]">Verified</Badge>
+              <Badge className="bg-[#0C713D]">Community Verified</Badge>
             </div>
           )}
         </div>
         <div className="p-4">
           <h3 className="font-bold text-lg mb-1 group-hover:text-[#0C713D] transition-colors">{recipe.name}</h3>
-          <p className="text-sm text-gray-500 mb-3">
-            By <Link to={`/users/${recipe.author.id}`} className="hover:text-[#0C713D]">{recipe.author.name}</Link>
-          </p>
-
-          <div className="flex justify-between text-sm text-gray-600 mb-3">
-            <div className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              <span>{recipe.cookTime || "N/A"} mins</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              <span>{recipe.servings || "N/A"} servings</span>
-            </div>
-          </div>
-
-          <div className="mb-3">
-            <div className="flex justify-between text-xs mb-1">
-              <span>Community Rating</span>
-              <span className="font-medium">{recipe.approvalRating}%</span>
-            </div>
-            <Progress value={recipe.approvalRating} className="h-1 [&>div]:bg-[#0C713D]" />
-            <div className="text-xs text-gray-500 mt-1">{recipe.voteCount} votes</div>
-          </div>
-
-          {displayedCategories.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {displayedCategories.map((category) => (
-                <Link
-                  key={category}
-                  to={`/recipes?category=${encodeURIComponent(category)}`}
-                  className="text-xs bg-gray-100 px-2 py-1 rounded-full hover:bg-[#0C713D] hover:text-white transition-colors"
-                >
-                  {category}
-                </Link>
-              ))}
-              {recipe.categories.length > 3 && (
-                <span className="text-xs text-gray-500">+{recipe.categories.length - 3} more</span>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-gray-500">No categories</p>
-          )}
         </div>
       </Link>
+      <div className="p-4 pt-0">
+        <p className="text-sm text-gray-500 mb-3">
+          By{" "}
+          <Link to={`/users/${recipe.author.id}`} className="hover:text-[#0C713D]">
+            {recipe.author.name}
+          </Link>
+        </p>
+
+        <div className="flex justify-between text-sm text-gray-600 mb-3">
+          <div className="flex items-center gap-1">
+            <Clock className="h-4 w-4" />
+            <span>{recipe.cookTime} mins</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Users className="h-4 w-4" />
+            <span>{recipe.servings} servings</span>
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <div className="flex justify-between text-xs mb-1">
+            <span>Community Rating</span>
+            <span className="font-medium">{recipe.approvalRating}%</span>
+          </div>
+          <Progress value={recipe.approvalRating} className="h-1 [&>div]:bg-[#0C713D]" />
+          <div className="text-xs text-gray-500 mt-1">{recipe.voteCount} votes</div>
+        </div>
+
+        {displayedCategories.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {displayedCategories.map((category) => (
+              <Link
+                key={category}
+                to={`/recipes?category=${encodeURIComponent(category)}`}
+                className="text-xs bg-gray-100 px-2 py-1 rounded-full hover:bg-[#0C713D] hover:text-white transition-colors"
+              >
+                {category}
+              </Link>
+            ))}
+            {recipe.categories.length > 3 && (
+              <span className="text-xs text-gray-500">+{recipe.categories.length - 3} more</span>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">No categories</p>
+        )}
+      </div>
       <Toaster richColors position="top-center" closeButton={false} />
     </div>
   );

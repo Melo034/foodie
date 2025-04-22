@@ -7,6 +7,8 @@ import { Recipe } from "@/lib/types";
 import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/server/firebase";
 import { toast, Toaster } from "sonner";
+import { normalizeRecipe } from "@/utils/firestore";
+import Loading from "./Loading";
 
 interface FeaturedRecipeProps {
   recipe?: Recipe;
@@ -37,43 +39,7 @@ export function FeaturedRecipe({ recipe: propRecipe }: FeaturedRecipeProps) {
         }
 
         const doc = snapshot.docs[0];
-        const data = doc.data();
-        // Normalize data to match Recipe type
-        const normalizedRecipe: Recipe = {
-          id: doc.id,
-          name: data.name || "Untitled Recipe",
-          description: data.description || "",
-          image: data.image || undefined,
-          cookTime: data.cookTime || 0,
-          servings: data.servings || 1,
-          categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
-          createdAt: data.createdAt
-            ? typeof data.createdAt === "string"
-              ? data.createdAt
-              : data.createdAt.toDate().toISOString()
-            : new Date().toISOString(),
-          approvalRating: data.approvalRating || 0,
-          voteCount: data.voteCount || data.votes || 0, // Fallback to old votes field if migration not complete
-          ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
-          instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
-          tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
-          author: data.author && data.author.id && data.author.name
-            ? {
-                id: data.author.id,
-                name: data.author.name,
-                avatar: data.author.avatar || undefined,
-                bio: data.author.bio || undefined,
-                recipesCount: data.author.recipesCount || 0,
-              }
-            : { id: "unknown", name: "Anonymous User", recipesCount: 0 },
-          comments: data.comments && Array.isArray(data.comments) ? data.comments : [],
-          status: data.status || "published",
-          votes: data.votes && Array.isArray(data.votes)
-            ? data.votes
-            : data.voters && Array.isArray(data.voters)
-              ? data.voters.map((userId: string) => ({ userId, type: "up" })) // Migrate old voters
-              : [],
-        };
+        const normalizedRecipe = normalizeRecipe(doc); 
         setRecipe(normalizedRecipe);
       } catch (err: unknown) {
         console.error("Error fetching featured recipe:", err);
@@ -88,7 +54,9 @@ export function FeaturedRecipe({ recipe: propRecipe }: FeaturedRecipeProps) {
   }, [propRecipe]);
 
   if (loading) {
-    return <div className="text-center p-6">Loading featured recipe...</div>;
+    return <div className="text-center p-6">
+      <Loading/>
+    </div>;
   }
 
   if (error) {
@@ -100,9 +68,12 @@ export function FeaturedRecipe({ recipe: propRecipe }: FeaturedRecipeProps) {
     );
   }
 
-  if (!recipe || !recipe.author) {
-    console.warn("FeaturedRecipe: Missing recipe or author data");
+  if (!recipe) {
+    toast.warning("FeaturedRecipe", { description: " Missing recipe data" });
     return null;
+  }
+  if (recipe.author.id === "unknown") {
+    toast.warning("FeaturedRecipe", { description: " Recipe has default anonymous author" });
   }
 
   return (
@@ -141,11 +112,11 @@ export function FeaturedRecipe({ recipe: propRecipe }: FeaturedRecipeProps) {
         <div className="flex gap-6 mb-6">
           <div className="flex items-center gap-1 text-sm text-gray-600">
             <Clock className="h-4 w-4" />
-            <span>{recipe.cookTime || "N/A"} mins</span>
+            <span>{recipe.cookTime} mins</span>
           </div>
           <div className="flex items-center gap-1 text-sm text-gray-600">
             <Users className="h-4 w-4" />
-            <span>{recipe.servings || "N/A"} servings</span>
+            <span>{recipe.servings} servings</span>
           </div>
         </div>
 

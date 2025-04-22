@@ -7,7 +7,6 @@ import { auth, db } from "../../server/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import { Toaster, toast, } from "sonner";
 
@@ -42,23 +41,20 @@ const Login = () => {
         }
 
         try {
-            // Sign in with Firebase Authentication
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            // Optional: Check if user has a Firestore profile, create one if missing
             const userDocRef = doc(db, "users", user.uid);
             const userDoc = await getDoc(userDocRef);
             if (!userDoc.exists()) {
-                console.log("Creating Firestore profile for user:", user.uid);
                 await setDoc(userDocRef, {
                     name: user.displayName || "Anonymous User",
                     email: user.email || email,
-                    avatar: user.photoURL || null,
-                    bio: null,
+                    avatar: user.photoURL || undefined,
+                    bio: undefined,
                     joinedAt: new Date().toISOString(),
                     recipesCount: 0,
-                });
+                  });
             }
 
             toast.success("Success", {
@@ -128,13 +124,6 @@ const Login = () => {
                             </Link>
                         </div>
                         <Input id="password" type="password" required />
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                        <Checkbox id="remember" className="accent-[#0C713D]" />
-                        <Label htmlFor="remember" className="text-sm">
-                            Remember me
-                        </Label>
                     </div>
 
                     <Button

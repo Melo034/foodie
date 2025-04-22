@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/server/firebase";
 import { toast, Toaster } from "sonner";
+import { normalizeRecipe } from "@/utils/firestore";
+import Loading from "@/components/Loading";
 
 const Recipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -44,41 +46,7 @@ const Recipes = () => {
         setIsLoading(true);
         const recipesCollection = collection(db, "recipes");
         const recipesSnapshot = await getDocs(recipesCollection);
-        const allRecipes = recipesSnapshot.docs.map((doc) => {
-          const data = doc.data();
-          // Log warnings for missing or incomplete data
-          if (!data.author || !data.author.id || !data.author.name) {
-            console.warn(`Recipe ${doc.id} is missing author data. Setting default.`);
-          }
-          if (!data.ingredients || !Array.isArray(data.ingredients)) {
-            console.warn(`Recipe ${doc.id} is missing ingredients. Setting default.`);
-          }
-          return {
-            id: doc.id,
-            name: data.name || "Untitled Recipe",
-            description: data.description || "",
-            image: data.image || undefined,
-            cookTime: data.cookTime || 0,
-            servings: data.servings || 1,
-            categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
-            createdAt: data.createdAt ? (typeof data.createdAt === "string" ? data.createdAt : data.createdAt.toDate().toISOString()) : new Date().toISOString(),
-            approvalRating: data.approvalRating || 0,
-            voteCount: data.voteCount || 0,
-            ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
-            instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
-            tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
-            author: data.author && data.author.id && data.author.name
-              ? {
-                  id: data.author.id,
-                  name: data.author.name,
-                  avatar: data.author.avatar || undefined,
-                  bio: data.author.bio || undefined,
-                  recipesCount: data.author.recipesCount || 0,
-                }
-              : { id: "unknown", name: "Anonymous User", recipesCount: 0 },
-            comments: data.comments && Array.isArray(data.comments) ? data.comments : [],
-          } as Recipe;
-        });
+        const allRecipes = recipesSnapshot.docs.map((doc) => normalizeRecipe(doc));
         setRecipes(allRecipes);
         setFilteredRecipes(allRecipes);
       } catch (err: unknown) {
@@ -95,8 +63,11 @@ const Recipes = () => {
   // Get all unique categories and authors
   const allCategories = Array.from(new Set(recipes.flatMap((recipe) => recipe.categories))).sort();
   const allAuthors = Array.from(
-    new Set(recipes.map((recipe) => recipe.author.name).filter((name) => name && name !== "Anonymous User"))
-  ).sort();
+    new Set(recipes.map((recipe) => JSON.stringify({ id: recipe.author.id, name: recipe.author.name })))
+  )
+    .map((str) => JSON.parse(str))
+    .filter((author) => author.id !== "unknown")
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   // Apply filters and sorting
   useEffect(() => {
@@ -169,7 +140,7 @@ const Recipes = () => {
 
     // Author filter
     if (activeFilters.authorFilters.length > 0) {
-      result = result.filter((recipe) => activeFilters.authorFilters.includes(recipe.author.name));
+      result = result.filter((recipe) => activeFilters.authorFilters.includes(recipe.author.id));
     }
 
     // Sorting
@@ -204,12 +175,12 @@ const Recipes = () => {
     setSortBy(value);
   };
 
-  const toggleAuthorFilter = (authorName: string) => {
+  const toggleAuthorFilter = (authorId: string) => {
     setActiveFilters((prev) => ({
       ...prev,
-      authorFilters: prev.authorFilters.includes(authorName)
-        ? prev.authorFilters.filter((name) => name !== authorName)
-        : [...prev.authorFilters, authorName],
+      authorFilters: prev.authorFilters.includes(authorId)
+        ? prev.authorFilters.filter((id) => id !== authorId)
+        : [...prev.authorFilters, authorId],
     }));
   };
 
@@ -249,7 +220,9 @@ const Recipes = () => {
         {/* Loading State */}
         {isLoading && (
           <div className="text-center py-12">
-            <p className="text-gray-500">Loading recipes...</p>
+            <div className="flex justify-center items-center h-64">
+              <Loading/>
+            </div>
           </div>
         )}
 
@@ -413,20 +386,20 @@ const Recipes = () => {
                         <h3 className="font-medium">Authors</h3>
                         <div className="grid gap-2 max-h-48 overflow-y-auto">
                           {allAuthors.map((author) => (
-                            <div key={author} className="flex items-center space-x-2">
+                            <div key={author.id} className="flex items-center space-x-2">
                               <Checkbox
-                                id={`author-${author}`}
-                                checked={activeFilters.authorFilters.includes(author)}
-                                onCheckedChange={() => toggleAuthorFilter(author)}
+                                id={`author-${author.id}`}
+                                checked={activeFilters.authorFilters.includes(author.id)}
+                                onCheckedChange={() => toggleAuthorFilter(author.id)}
                               />
-                              <Label htmlFor={`author-${author}`}>{author}</Label>
+                              <Label htmlFor={`author-${author.id}`}>{author.name}</Label>
                             </div>
                           ))}
                         </div>
                       </div>
                     </div>
                     <SheetFooter className="flex flex-row justify-between sm:justify-between gap-2">
-                      <Button variant="outline" onClick={clearFilters} className="bg-[#0C713D] hover:bg-[#095e32]">
+                      <Button variant="outline" onClick={clearFilters} className="bg-[#0C713D] hover:bg-[#095e32] text-white">
                         Clear All
                       </Button>
                       <SheetClose asChild>
@@ -465,12 +438,15 @@ const Recipes = () => {
                     <X className="h-3 w-3 cursor-pointer" onClick={() => setActiveFilters((prev) => ({ ...prev, approvalRating: "" }))} />
                   </Badge>
                 )}
-                {activeFilters.authorFilters.map((author) => (
-                  <Badge key={author} variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                    Author: {author}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => toggleAuthorFilter(author)} />
-                  </Badge>
-                ))}
+                {activeFilters.authorFilters.map((authorId) => {
+                  const author = allAuthors.find((a) => a.id === authorId);
+                  return (
+                    <Badge key={authorId} variant="secondary" className="flex items-center gap-1 px-3 py-1">
+                      Author: {author ? author.name : authorId}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => toggleAuthorFilter(authorId)} />
+                    </Badge>
+                  );
+                })}
                 <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 px-2 text-white hover:text-white bg-[#0C713D] hover:bg-[#095e32]">
                   Clear All
                 </Button>

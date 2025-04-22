@@ -8,6 +8,8 @@ import { RecipeCard } from "@/components/recipe-card";
 import type { Recipe, User } from "@/lib/types";
 import { Navbar } from "@/components/utils/Navbar";
 import { Footer } from "@/components/utils/Footer";
+import { normalizeRecipe } from "@/utils/firestore";
+import Loading from "@/components/Loading";
 
 const UsersProfiles = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -34,7 +36,6 @@ const UsersProfiles = () => {
         }
 
         const userData = userDoc.data();
-        console.log("User data:", userData); // Debug user data
 
         // Format joinedAt
         let formattedJoinedAt = "Unknown";
@@ -63,13 +64,7 @@ const UsersProfiles = () => {
           where("author.id", "==", userId)
         );
         const recipesSnap = await getDocs(recipesQuery);
-        console.log("Recipes found:", recipesSnap.size); // Debug number of recipes
-        recipesSnap.forEach((doc) => console.log("Recipe:", doc.id, doc.data())); // Debug each recipe
-
-        const fetchedRecipes = recipesSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as Recipe));
+        const fetchedRecipes = recipesSnap.docs.map((doc) => normalizeRecipe(doc));
 
         setUser({
           id: userId,
@@ -78,7 +73,7 @@ const UsersProfiles = () => {
           avatar: userData.avatar,
           bio: userData.bio,
           joinedAt: formattedJoinedAt || "Unknown",
-          recipesCount: recipesSnap.size, // Use computed count for accuracy
+          recipesCount: recipesSnap.size, 
         });
         setRecipes(fetchedRecipes);
       } catch (err) {
@@ -96,7 +91,11 @@ const UsersProfiles = () => {
     return (
       <>
         <Navbar />
-        <div className="container max-w-7xl mx-auto px-4 py-20 sm:py-32">Loading...</div>
+        <div className="container max-w-7xl mx-auto px-4 py-20 sm:py-32">
+          <div className="flex justify-center items-center h-64">
+            <Loading />
+          </div>
+        </div>
         <Footer />
       </>
     );

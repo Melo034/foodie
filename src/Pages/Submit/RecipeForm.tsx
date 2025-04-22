@@ -27,12 +27,18 @@ const availableCategories = [
 
 const RecipeForm: React.FC<RecipeFormProps> = ({ initialData = {}, onSubmit, mode }) => {
   const [ingredients, setIngredients] = useState<Ingredient[]>(
-    initialData.ingredients?.length ? initialData.ingredients : [{ name: "", quantity: "" }]
+    initialData.ingredients && Array.isArray(initialData.ingredients)
+      ? initialData.ingredients
+      : [{ name: "", quantity: "" }]
   );
   const [instructions, setInstructions] = useState<string[]>(
-    initialData.instructions?.length ? initialData.instructions : [""]
+    initialData.instructions && Array.isArray(initialData.instructions)
+      ? initialData.instructions
+      : [""]
   );
-  const [tips, setTips] = useState<string[]>(initialData.tips?.length ? initialData.tips : [""]);
+  const [tips, setTips] = useState<string[]>(
+    initialData.tips && Array.isArray(initialData.tips) ? initialData.tips : [""]
+  );
   const [categories, setCategories] = useState<string[]>(initialData.categories || []);
   const [imagePreview, setImagePreview] = useState<string | null>(initialData.image || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -111,7 +117,7 @@ const RecipeForm: React.FC<RecipeFormProps> = ({ initialData = {}, onSubmit, mod
       };
       reader.readAsDataURL(file);
     } else {
-      setImagePreview(initialData.image || null);
+      setImagePreview(null);
     }
   };
 

@@ -70,23 +70,20 @@ const SignUp = () => {
     }
 
     try {
-      // Create user with Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Update Firebase Authentication profile
       await updateProfile(user, {
         displayName: `${firstName} ${lastName}`,
       });
 
-      // Save user data to Firestore
       await setDoc(doc(db, "users", user.uid), {
         name: `${firstName} ${lastName}`,
         email: email,
-        avatar: null, // Optional: Set default or allow user to upload later
-        bio: null, // Optional: Allow user to set later
-        joinedAt: new Date().toISOString(), // Set current date as ISO string
-        recipesCount: 0, // Initialize to 0
+        avatar: undefined,
+        bio: undefined,
+        joinedAt: new Date().toISOString(),
+        recipesCount: 0,
       });
 
       toast.success("Success", {

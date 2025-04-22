@@ -10,6 +10,7 @@ import type { Author, Ingredient } from "@/lib/types";
 import RecipeForm from "./RecipeForm";
 import { Navbar } from "@/components/utils/Navbar";
 import { Footer } from "@/components/utils/Footer";
+import { cleanFirestoreData } from "@/utils/firestore";
 
 const SubmitRecipe = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -83,16 +84,19 @@ const SubmitRecipe = () => {
       categories,
       ingredients,
       instructions,
-      tips: tips.length > 0 ? tips : undefined,
-      image: imageUrl || undefined,
+      tips: tips.length > 0 ? tips : [],
+      image: imageUrl,
       author,
       approvalRating: 0,
-      votes: 0,
+      voteCount: 0,
+      votes: [], 
       comments: [],
       createdAt: serverTimestamp(),
+      status: "draft" as const, 
     };
 
-    await addDoc(collection(db, "recipes"), recipeData);
+    const cleanedRecipeData = cleanFirestoreData(recipeData);
+    await addDoc(collection(db, "recipes"), cleanedRecipeData);
 
     await updateDoc(doc(db, "users", user.uid), {
       recipesCount: increment(1),

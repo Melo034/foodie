@@ -16,6 +16,8 @@ import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { onAuthStateChanged } from "firebase/auth";
 import type { User, Recipe } from "@/lib/types";
+import { normalizeRecipe } from "@/utils/firestore";
+import Loading from "@/components/Loading";
 
 const Profile = () => {
     const [isEditing, setIsEditing] = useState(false);
@@ -78,36 +80,7 @@ const Profile = () => {
                     where("author.id", "==", user.uid)
                 );
                 const snapshot = await getDocs(recipesQuery);
-                const userRecipes = snapshot.docs.map((doc) => {
-                    const data = doc.data();
-                    return {
-                        id: doc.id,
-                        name: data.name || "Untitled Recipe",
-                        description: data.description || "",
-                        image: data.image || undefined,
-                        cookTime: data.cookTime || 0,
-                        servings: data.servings || 1,
-                        categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
-                        createdAt: data.createdAt
-                            ? typeof data.createdAt === "string"
-                                ? data.createdAt
-                                : data.createdAt.toDate().toISOString()
-                            : new Date().toISOString(),
-                        approvalRating: data.approvalRating || 0,
-                        votes: data.votes || 0,
-                        ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
-                        instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
-                        tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
-                        author: {
-                            id: data.author.id,
-                            name: data.author.name,
-                            avatar: data.author.avatar || undefined,
-                            bio: data.author.bio || undefined,
-                            recipesCount: data.author.recipesCount || 0,
-                        },
-                        comments: data.comments && Array.isArray(data.comments) ? data.comments : [],
-                    } as Recipe;
-                });
+                const userRecipes = snapshot.docs.map((doc) => normalizeRecipe(doc));
                 setRecipes(userRecipes);
 
                 await setDoc(doc(db, "users", user.uid), { recipesCount: userRecipes.length }, { merge: true });
@@ -145,10 +118,16 @@ const Profile = () => {
             let avatarUrl = profile.avatar;
 
             if (avatarFile) {
+                if (!["image/jpeg", "image/png", "image/webp"].includes(avatarFile.type)) {
+                  throw new Error("Avatar must be JPEG, PNG, or WEBP.");
+                }
+                if (avatarFile.size > 5 * 1024 * 1024) {
+                  throw new Error("Avatar must be less than 5MB.");
+                }
                 const storageRef = ref(storage, `avatars/${auth.currentUser.uid}/${avatarFile.name}`);
                 await uploadBytes(storageRef, avatarFile);
                 avatarUrl = await getDownloadURL(storageRef);
-            }
+              }
 
             const updatedProfile: User = {
                 id: profile.id,
@@ -191,8 +170,8 @@ const Profile = () => {
                 <div className="py-20 sm:py-32 container mx-auto px-4 md:px-6 max-w-6xl">
                     <div className="container flex-1 items-start md:grid md:grid-cols-[220px_1fr] md:gap-6 lg:grid-cols-[240px_1fr] lg:gap-10 py-8">
                         <Sidebar />
-                        <main className="flex w-full flex-col mx-auto overflow-hidden">
-                            Loading profile...
+                        <main className="flex w-full flex-col mx-auto overflow-hidden justify-center items-center h-64">
+                            <Loading/>
                         </main>
                     </div>
                 </div>
@@ -314,7 +293,7 @@ const Profile = () => {
                         ) : (
                             <div className="space-y-6">
                                 <div className="flex flex-col items-center mb-6">
-                                    <Avatar  className="h-36 w-36 sm:h-28 sm:w-28 md:h-36 md:w-36 rounded-full border-[#095e32] border-2 overflow-hidden">
+                                    <Avatar className="h-36 w-36 sm:h-28 sm:w-28 md:h-36 md:w-36 rounded-full border-[#095e32] border-2 overflow-hidden">
                                         <AvatarImage className="w-full h-full object-cover " src={profile.avatar || "/Images/placeholder.jpg"} alt={profile.name} />
                                         <AvatarFallback>{profile.name.charAt(0)}</AvatarFallback>
                                     </Avatar>

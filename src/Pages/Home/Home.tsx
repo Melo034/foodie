@@ -12,6 +12,8 @@ import { Footer } from "@/components/utils/Footer";
 import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "@/server/firebase";
 import { toast, Toaster } from "sonner";
+import { normalizeRecipe } from "@/utils/firestore";
+import Loading from "@/components/Loading";
 
 const Home = () => {
   const [topRecipes, setTopRecipes] = useState<Recipe[]>([]);
@@ -20,19 +22,17 @@ const Home = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Fetch top recipes from Firestore
   useEffect(() => {
     const fetchTopRecipes = async () => {
       try {
         setLoading(true);
         let recipesQuery;
 
-        // Primary query with composite index
         try {
           recipesQuery = query(
             collection(db, "recipes"),
             orderBy("approvalRating", "desc"),
-            orderBy("votes", "desc"),
+            orderBy("voteCount", "desc"),
             limit(3)
           );
           const snapshot = await getDocs(recipesQuery);
@@ -41,42 +41,9 @@ const Home = () => {
             return;
           }
 
-          const recipes = snapshot.docs.map((doc) => {
-            const data = doc.data();
-            // Normalize data to match Recipe type
-            return {
-              id: doc.id,
-              name: data.name || "Untitled Recipe",
-              description: data.description || "",
-              image: data.image || undefined,
-              cookTime: data.cookTime || 0,
-              servings: data.servings || 1,
-              categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
-              createdAt: data.createdAt
-                ? typeof data.createdAt === "string"
-                  ? data.createdAt
-                  : data.createdAt.toDate().toISOString()
-                : new Date().toISOString(),
-              approvalRating: data.approvalRating || 0,
-              votes: data.votes || 0,
-              ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
-              instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
-              tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
-              author: data.author && data.author.id && data.author.name
-                ? {
-                    id: data.author.id,
-                    name: data.author.name,
-                    avatar: data.author.avatar || undefined,
-                    bio: data.author.bio || undefined,
-                    recipesCount: data.author.recipesCount || 0,
-                  }
-                : { id: "unknown", name: "Anonymous User", recipesCount: 0 },
-              comments: data.comments && Array.isArray(data.comments) ? data.comments : [],
-            } as Recipe;
-          });
+          const recipes = snapshot.docs.map((doc) => normalizeRecipe(doc));
           setTopRecipes(recipes);
         } catch (indexError: unknown) {
-          // Fallback query if composite index is missing
           if (
             typeof indexError === "object" &&
             indexError !== null &&
@@ -96,42 +63,8 @@ const Home = () => {
               return;
             }
 
-            const recipes = snapshot.docs.map((doc) => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                name: data.name || "Untitled Recipe",
-                description: data.description || "",
-                image: data.image || undefined,
-                cookTime: data.cookTime || 0,
-                servings: data.servings || 1,
-                categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
-                createdAt: data.createdAt
-                  ? typeof data.createdAt === "string"
-                    ? data.createdAt
-                    : data.createdAt.toDate().toISOString()
-                  : new Date().toISOString(),
-                approvalRating: data.approvalRating || 0,
-                votes: data.votes || 0,
-                ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
-                instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
-                tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
-                author: data.author && data.author.id && data.author.name
-                  ? {
-                      id: data.author.id,
-                      name: data.author.name,
-                      avatar: data.author.avatar || undefined,
-                      bio: data.author.bio || undefined,
-                      recipesCount: data.author.recipesCount || 0,
-                    }
-                  : { id: "unknown", name: "Anonymous User", recipesCount: 0 },
-                comments: data.comments && Array.isArray(data.comments) ? data.comments : [],
-              } as Recipe;
-            });
+            const recipes = snapshot.docs.map((doc) => normalizeRecipe(doc));
             setTopRecipes(recipes);
-            toast.success("Welcome", {
-              description: "Explore traditional recipes, share your family favorites, and connect with a community of food lovers.",
-            });
           } else {
             throw indexError;
           }
@@ -155,7 +88,6 @@ const Home = () => {
       navigate(`/recipes?search=${encodeURIComponent(searchTerm.trim())}`);
     }
   };
-
   return (
     <div>
       <Navbar />
@@ -206,7 +138,7 @@ const Home = () => {
           <div className="container mx-auto max-w-6xl px-4">
             <h2 className="text-3xl font-bold mb-8">Featured Recipe</h2>
             {loading ? (
-              <div className="text-center">Loading featured recipe...</div>
+              <div className="flex justify-center items-center h-64"><Loading/></div>
             ) : error ? (
               <div className="text-center text-red-600">{error}</div>
             ) : topRecipes.length > 0 ? (
@@ -227,7 +159,7 @@ const Home = () => {
               </Button>
             </div>
             {loading ? (
-              <div className="text-center">Loading popular recipes...</div>
+              <div className="flex justify-center items-center h-64"><Loading/></div>
             ) : error ? (
               <div className="text-center text-red-600">{error}</div>
             ) : topRecipes.length > 0 ? (

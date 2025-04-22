@@ -10,6 +10,8 @@ import type { Recipe, Ingredient } from "@/lib/types";
 import RecipeForm from "../RecipeForm";
 import { Navbar } from "@/components/utils/Navbar";
 import { Footer } from "@/components/utils/Footer";
+import { normalizeRecipe } from "@/utils/firestore";
+import Loading from "@/components/Loading";
 
 const EditRecipe = () => {
     const { id } = useParams<{ id: string }>();
@@ -37,7 +39,7 @@ const EditRecipe = () => {
                     return;
                 }
 
-                const recipeData = { id: docSnap.id, ...docSnap.data() } as Recipe;
+                const recipeData = normalizeRecipe(docSnap);
                 if (recipeData.author.id !== currentUser.uid) {
                     setError("You can only edit your own recipes.");
                     navigate("/account/my-recipes");
@@ -67,14 +69,31 @@ const EditRecipe = () => {
             throw new Error("User or recipe not found");
         }
 
-        const name = formData.get("name") as string;
-        const description = formData.get("description") as string;
-        const cookTime = parseInt(formData.get("cookTime") as string);
-        const servings = parseInt(formData.get("servings") as string);
+        const name = formData.get("name");
+        const description = formData.get("description");
+        const cookTimeStr = formData.get("cookTime");
+        const servingsStr = formData.get("servings");
+
+        if (!name || typeof name !== "string" || name.trim().length < 2) {
+            throw new Error("Recipe name must be at least 2 characters long.");
+        }
+        if (!description || typeof description !== "string" || description.trim().length < 10) {
+            throw new Error("Description must be at least 10 characters long.");
+        }
+        const cookTime = parseInt(cookTimeStr as string) || 0;
+        const servings = parseInt(servingsStr as string) || 0;
+        if (cookTime <= 0) throw new Error("Cooking time must be greater than 0.");
+        if (servings <= 0) throw new Error("Servings must be greater than 0.");
         const image = formData.get("image") as File;
 
         let imageUrl = recipe.image;
         if (image && image.size > 0) {
+            if (!["image/jpeg", "image/png", "image/webp"].includes(image.type)) {
+                throw new Error("Image must be JPEG, PNG, or WEBP.");
+            }
+            if (image.size > 5 * 1024 * 1024) {
+                throw new Error("Image must be less than 5MB.");
+            }
             const imageRef = ref(storage, `recipes/${user.uid}/${Date.now()}-${image.name}`);
             await uploadBytes(imageRef, image);
             imageUrl = await getDownloadURL(imageRef);
@@ -107,8 +126,8 @@ const EditRecipe = () => {
             <>
                 <Navbar />
                 <div className="container mx-auto px-4 py-20 sm:py-32">
-                    <div className="max-w-3xl mx-auto">
-                        Loading...
+                    <div className="max-w-3xl mx-auto flex justify-center items-center h-64">
+                        <Loading/>
                     </div>
                 </div>
                 <Footer />

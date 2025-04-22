@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Key } from "lucide-react";
+import { Key, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,17 +8,27 @@ import { toast, Toaster } from "sonner";
 import { Footer } from "@/components/utils/Footer";
 import { Navbar } from "@/components/utils/Navbar";
 import Sidebar from "../Components/Sidebar";
-import { auth } from "@/server/firebase";
-import { onAuthStateChanged, reauthenticateWithCredential, updatePassword, EmailAuthProvider } from "firebase/auth";
+import { auth, db } from "@/server/firebase";
+import {
+  onAuthStateChanged,
+  reauthenticateWithCredential,
+  updatePassword,
+  EmailAuthProvider,
+  deleteUser,
+  signOut,
+} from "firebase/auth";
+import { deleteDoc, doc } from "firebase/firestore";
 
 const PasswordSettings = () => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -84,17 +94,75 @@ const PasswordSettings = () => {
       });
     } catch (err: unknown) {
       let errorMessage = "Failed to update password. Please try again.";
-      if (err instanceof Error && (err as { code?: string }).code === "auth/wrong-password") {
-        errorMessage = "Current password is incorrect.";
-      } else if (err instanceof Error && (err as { code?: string }).code === "auth/weak-password") {
-        errorMessage = "New password is too weak.";
-      } else if (err instanceof Error && (err as { code?: string }).code === "auth/requires-recent-login") {
-        errorMessage = "Please log in again to update your password.";
+      if (err instanceof Error && "code" in err) {
+        switch ((err as { code: string }).code) {
+          case "auth/wrong-password":
+            errorMessage = "Current password is incorrect.";
+            break;
+          case "auth/weak-password":
+            errorMessage = "New password is too weak.";
+            break;
+          case "auth/requires-recent-login":
+            errorMessage = "Please log in again to update your password.";
+            break;
+          case "auth/too-many-requests":
+            errorMessage = "Too many attempts. Please try again later.";
+            break;
+        }
       }
       setError(errorMessage);
       toast.error("Error", { description: errorMessage });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        throw new Error("No authenticated user found.");
+      }
+
+      const credential = EmailAuthProvider.credential(user.email, deletePassword);
+      await reauthenticateWithCredential(user, credential);
+
+      // Delete user document from Firestore
+      await deleteDoc(doc(db, "users", user.uid));
+
+      // Delete the user account
+      await deleteUser(user);
+
+      // Sign out and redirect
+      await signOut(auth);
+      toast.success("Account deleted", {
+        description: "Your account has been successfully deleted.",
+      });
+      navigate("/");
+    } catch (err: unknown) {
+      let errorMessage = "Failed to delete account. Please try again.";
+      if (err instanceof Error && "code" in err) {
+        switch ((err as { code: string }).code) {
+          case "auth/wrong-password":
+            errorMessage = "Password is incorrect.";
+            break;
+          case "auth/requires-recent-login":
+            errorMessage = "Please log in again to delete your account.";
+            break;
+          case "auth/too-many-requests":
+            errorMessage = "Too many attempts. Please try again later.";
+            break;
+        }
+      }
+      setError(errorMessage);
+      toast.error("Error", { description: errorMessage });
+    } finally {
+      setIsSaving(false);
+      setDeletePassword("");
     }
   };
 
@@ -106,7 +174,7 @@ const PasswordSettings = () => {
     );
   }
 
-  if (error && !isChangingPassword) {
+  if (error && !isChangingPassword && !isDeletingAccount) {
     return (
       <div className="container mx-auto px-4 py-20 text-center text-red-600">
         {error}
@@ -129,6 +197,7 @@ const PasswordSettings = () => {
             </div>
 
             <div className="space-y-8">
+              {/* Password Change Section */}
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <Key className="h-5 w-5 text-gray-500" />
@@ -163,8 +232,9 @@ const PasswordSettings = () => {
                         onChange={(e) => setNewPassword(e.target.value)}
                         required
                         aria-required="true"
+                        aria-describedby="password-requirements"
                       />
-                      <p className="text-xs text-gray-500">
+                      <p id="password-requirements" className="text-xs text-gray-500">
                         Password must be at least 8 characters and include a number and special character.
                       </p>
                     </div>
@@ -219,12 +289,79 @@ const PasswordSettings = () => {
                   </div>
                 )}
               </div>
+
+              {/* Delete Account Section */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Trash2 className="h-5 w-5 text-gray-500" />
+                  <h2 className="text-lg font-medium">Delete Account</h2>
+                </div>
+
+                {isDeletingAccount ? (
+                  <form onSubmit={handleDeleteAccount} className="space-y-4 pl-7">
+                    {error && (
+                      <p className="text-red-600 text-sm" role="alert">
+                        {error}
+                      </p>
+                    )}
+                    <p className="text-gray-600 mb-4">
+                      Deleting your account is permanent and cannot be undone. This will remove your user profile and
+                      associated data.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="delete-password">Enter Password to Confirm</Label>
+                      <Input
+                        id="delete-password"
+                        type="password"
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        required
+                        aria-required="true"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setIsDeletingAccount(false);
+                          setError(null);
+                          setDeletePassword("");
+                        }}
+                        disabled={isSaving}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        variant="destructive"
+                        disabled={isSaving}
+                      >
+                        {isSaving ? "Deleting..." : "Delete Account"}
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="pl-7">
+                    <p className="text-gray-600 mb-4">
+                      Permanently delete your account and all associated data.
+                    </p>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setIsDeletingAccount(true)}
+                    >
+                      Delete Account
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </main>
         </div>
       </div>
       <Footer />
-       <Toaster richColors position="top-center" closeButton={false} />
+      <Toaster richColors position="top-center" closeButton={false} />
     </>
   );
 };

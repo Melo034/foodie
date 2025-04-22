@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import { Recipe, Comment } from "@/lib/types";
+import { Recipe, Comment, User } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { Navbar } from "@/components/utils/Navbar";
 import { Footer } from "@/components/utils/Footer";
@@ -13,6 +13,8 @@ import { doc, getDoc, collection, query, where, getDocs, limit, updateDoc, array
 import { db, auth } from "@/server/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { toast, Toaster } from "sonner";
+import { normalizeRecipe } from "@/utils/firestore";
+import Loading from "@/components/Loading";
 
 const Recipeinfo = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,7 +24,7 @@ const Recipeinfo = () => {
   const [error, setError] = useState<string | null>(null);
   const [comment, setComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [user, setUser] = useState<{ id: string; name: string; avatar?: string } | null>(null);
+  const [user, setUser] = useState<User | null>(null);;
 
   // Monitor authentication state
   useEffect(() => {
@@ -35,6 +37,9 @@ const Recipeinfo = () => {
             id: currentUser.uid,
             name: userData.name || "Anonymous User",
             avatar: userData.avatar || undefined,
+            email: userData.email || "No email provided",
+            recipesCount: userData.recipesCount || 0,
+            joinedAt: userData.joinedAt || new Date().toISOString(),
           });
         }
       } else {
@@ -74,45 +79,9 @@ const Recipeinfo = () => {
           recipesCount = recipesSnapshot.size;
         }
 
-        // Normalize data to match Recipe type
-        const normalizedRecipe: Recipe = {
-          id: recipeDoc.id,
-          name: recipeData.name || "Untitled Recipe",
-          description: recipeData.description || "",
-          image: recipeData.image || undefined,
-          cookTime: recipeData.cookTime || 0,
-          servings: recipeData.servings || 1,
-          categories: recipeData.categories && Array.isArray(recipeData.categories) ? recipeData.categories : [],
-          createdAt: recipeData.createdAt
-            ? typeof recipeData.createdAt === "string"
-              ? recipeData.createdAt
-              : recipeData.createdAt.toDate().toISOString()
-            : new Date().toISOString(),
-          approvalRating: recipeData.approvalRating || 0,
-          voteCount: recipeData.voteCount || recipeData.votes || 0,
-          ingredients: recipeData.ingredients && Array.isArray(recipeData.ingredients) ? recipeData.ingredients : [],
-          instructions: recipeData.instructions && Array.isArray(recipeData.instructions) ? recipeData.instructions : [],
-          tips: recipeData.tips && Array.isArray(recipeData.tips) ? recipeData.tips : undefined,
-          author: recipeData.author && recipeData.author.id && recipeData.author.name
-            ? {
-                id: recipeData.author.id,
-                name: recipeData.author.name,
-                avatar: recipeData.author.avatar || undefined,
-                bio: recipeData.author.bio || undefined,
-                recipesCount,
-              }
-            : { id: "unknown", name: "Anonymous User", recipesCount: 0 },
-          comments: recipeData.comments && Array.isArray(recipeData.comments) ? recipeData.comments : [],
-          status: recipeData.status || "published",
-          votes: recipeData.votes && Array.isArray(recipeData.votes)
-            ? recipeData.votes
-            : recipeData.voters && Array.isArray(recipeData.voters)
-              ? recipeData.voters.map((userId: string) => ({ userId, type: "up" }))
-              : [],
-        };
-        setRecipe(normalizedRecipe);
+        const normalizedRecipe = normalizeRecipe(recipeDoc);
+        setRecipe({ ...normalizedRecipe, author: { ...normalizedRecipe.author, recipesCount } });
 
-        // Fetch similar recipes
         if (normalizedRecipe.categories.length > 0) {
           const similarQuery = query(
             collection(db, "recipes"),
@@ -121,53 +90,21 @@ const Recipeinfo = () => {
             limit(3)
           );
           const similarDocs = await getDocs(similarQuery);
-          const similar = await Promise.all(similarDocs.docs.map(async (doc) => {
-            const data = doc.data();
-            let similarRecipesCount = 0;
-            if (data.author?.id) {
-              const similarRecipesQuery = query(
-                collection(db, "recipes"),
-                where("author.id", "==", data.author.id)
-              );
-              const similarRecipesSnapshot = await getDocs(similarRecipesQuery);
-              similarRecipesCount = similarRecipesSnapshot.size;
-            }
-            return {
-              id: doc.id,
-              name: data.name || "Untitled Recipe",
-              description: data.description || "",
-              image: data.image || undefined,
-              cookTime: data.cookTime || 0,
-              servings: data.servings || 1,
-              categories: data.categories && Array.isArray(data.categories) ? data.categories : [],
-              createdAt: data.createdAt
-                ? typeof data.createdAt === "string"
-                  ? data.createdAt
-                  : data.createdAt.toDate().toISOString()
-                : new Date().toISOString(),
-              approvalRating: data.approvalRating || 0,
-              voteCount: data.voteCount || data.votes || 0,
-              ingredients: data.ingredients && Array.isArray(data.ingredients) ? data.ingredients : [],
-              instructions: data.instructions && Array.isArray(data.instructions) ? data.instructions : [],
-              tips: data.tips && Array.isArray(data.tips) ? data.tips : undefined,
-              author: data.author && data.author.id && data.author.name
-                ? {
-                    id: data.author.id,
-                    name: data.author.name,
-                    avatar: data.author.avatar || undefined,
-                    bio: data.author.bio || undefined,
-                    recipesCount: similarRecipesCount,
-                  }
-                : { id: "unknown", name: "Anonymous User", recipesCount: 0 },
-              comments: data.comments && Array.isArray(data.comments) ? data.comments : [],
-              status: data.status || "published",
-              votes: data.votes && Array.isArray(data.votes)
-                ? data.votes
-                : data.voters && Array.isArray(data.voters)
-                  ? data.voters.map((userId: string) => ({ userId, type: "up" }))
-                  : [],
-            } as Recipe;
-          }));
+          const similar = await Promise.all(
+            similarDocs.docs.map(async (doc) => {
+              const normalized = normalizeRecipe(doc);
+              let similarRecipesCount = 0;
+              if (normalized.author.id !== "unknown") {
+                const similarRecipesQuery = query(
+                  collection(db, "recipes"),
+                  where("author.id", "==", normalized.author.id)
+                );
+                const similarRecipesSnapshot = await getDocs(similarRecipesQuery);
+                similarRecipesCount = similarRecipesSnapshot.size;
+              }
+              return { ...normalized, author: { ...normalized.author, recipesCount: similarRecipesCount } };
+            })
+          );
           setSimilarRecipes(similar);
         }
       } catch (err: unknown) {
@@ -194,6 +131,7 @@ const Recipeinfo = () => {
 
     const currentVote = recipe.votes?.find((vote) => vote.userId === user.id);
     const intendedVote = currentVote?.type === voteType ? null : voteType;
+
 
     try {
       const batch = writeBatch(db);
@@ -243,16 +181,18 @@ const Recipeinfo = () => {
         }
       }
 
-      newApprovalRating = Math.max(0, Math.min(100, newApprovalRating));
+      const totalVotes = newVotes.length;
+      const upvotes = newVotes.filter((vote) => vote.type === "up").length;
+      newApprovalRating = totalVotes > 0 ? Math.round((upvotes / totalVotes) * 100) : 0;
 
       setRecipe((prev) =>
         prev
           ? {
-              ...prev,
-              voteCount: newVoteCount,
-              approvalRating: newApprovalRating,
-              votes: newVotes,
-            }
+            ...prev,
+            voteCount: newVoteCount,
+            approvalRating: newApprovalRating,
+            votes: newVotes,
+          }
           : prev
       );
 
@@ -315,8 +255,8 @@ const Recipeinfo = () => {
   // Handle sharing
   const handleShare = async () => {
     const shareData = {
-      title: recipe?.name,
-      text: `Check out this Sierra Leonean recipe: ${recipe?.name}!`,
+      title: recipe?.name || "Recipe",
+      text: `Check out this Sierra Leonean recipe: ${recipe?.name || "Unknown Recipe"}!`,
       url: window.location.href,
     };
     try {
@@ -337,7 +277,9 @@ const Recipeinfo = () => {
       <>
         <Navbar />
         <div className="container px-4 py-24 mx-auto max-w-7xl sm:py-40 text-center">
-          <p>Loading recipe...</p>
+          <div className="flex justify-center items-center h-64">
+            <Loading/>
+          </div>
         </div>
         <Footer />
       </>
@@ -515,7 +457,7 @@ const Recipeinfo = () => {
                   variant="outline"
                   className="flex gap-2"
                   onClick={handleShare}
-                  aria-label="Share this recipe"
+                  aria-label={`Share recipe: ${recipe.name}`}
                 >
                   <Share2 className="h-4 w-4" />
                   Share
