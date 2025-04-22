@@ -1,6 +1,5 @@
-// utils/firestore.ts
 import { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
-import { Timestamp } from "firebase/firestore"; // Import Timestamp type
+import { Timestamp } from "firebase/firestore";
 import { Recipe, Comment } from "@/lib/types";
 
 export const normalizeRecipe = (doc: QueryDocumentSnapshot<DocumentData>): Recipe => {
@@ -10,7 +9,6 @@ export const normalizeRecipe = (doc: QueryDocumentSnapshot<DocumentData>): Recip
   // Helper function to normalize dates
   const normalizeDate = (value: unknown): string => {
     if (typeof value === "string") {
-      // Validate if the string is a valid date
       return isNaN(Date.parse(value)) ? new Date().toISOString() : value;
     }
     if (value instanceof Timestamp) {
@@ -19,21 +17,30 @@ export const normalizeRecipe = (doc: QueryDocumentSnapshot<DocumentData>): Recip
     if (value instanceof Date) {
       return value.toISOString();
     }
-    // Fallback for invalid or unexpected types
     return new Date().toISOString();
   };
+
+  // Normalize votes and calculate approvalRating
+  const votes = Array.isArray(data.votes)
+    ? data.votes
+    : Array.isArray(data.voters)
+      ? data.voters.map((userId: string) => ({ userId, type: "up" }))
+      : [];
+  const totalVotes = votes.length;
+  const upvotes = votes.filter((vote: { userId: string; type: "up" | "down" }) => vote.type === "up").length;
+  const approvalRating = totalVotes > 0 ? Math.round((upvotes / totalVotes) * 100) : 0;
 
   return {
     id: doc.id,
     name: data.name || "Untitled Recipe",
     description: data.description || "",
-    image: data.image ?? null, // Use null instead of undefined
+    image: data.image ?? null,
     cookTime: data.cookTime || 0,
     servings: data.servings || 1,
     categories: Array.isArray(data.categories) ? data.categories : [],
     createdAt: normalizeDate(data.createdAt),
-    approvalRating: data.approvalRating || 0,
-    voteCount: data.voteCount || (Array.isArray(data.votes) ? data.votes.length : 0),
+    approvalRating: approvalRating, // Recalculate instead of using Firestore value
+    voteCount: data.voteCount || totalVotes,
     ingredients: Array.isArray(data.ingredients) ? data.ingredients : [],
     instructions: Array.isArray(data.instructions) ? data.instructions : [],
     tips: Array.isArray(data.tips) ? data.tips : [],
@@ -41,7 +48,7 @@ export const normalizeRecipe = (doc: QueryDocumentSnapshot<DocumentData>): Recip
       ? {
           id: data.author.id,
           name: data.author.name,
-          avatar: data.author.avatar ?? null, // Use null instead of undefined
+          avatar: data.author.avatar ?? null,
           bio: data.author.bio ?? null,
           recipesCount: data.author.recipesCount || 0,
         }
@@ -55,11 +62,7 @@ export const normalizeRecipe = (doc: QueryDocumentSnapshot<DocumentData>): Recip
         }))
       : [],
     status: data.status || "published",
-    votes: Array.isArray(data.votes)
-      ? data.votes
-      : Array.isArray(data.voters)
-        ? data.voters.map((userId: string) => ({ userId, type: "up" }))
-        : [],
+    votes: votes,
   };
 };
 

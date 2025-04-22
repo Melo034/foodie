@@ -118,7 +118,6 @@ const Recipeinfo = () => {
     fetchData();
   }, [id]);
 
-  // Handle voting (upvote or downvote)
   const handleVote = async (voteType: "up" | "down") => {
     if (!user) {
       toast.error("Login Required", {
@@ -128,74 +127,55 @@ const Recipeinfo = () => {
       return;
     }
     if (!recipe || !id) return;
-
+  
     const currentVote = recipe.votes?.find((vote) => vote.userId === user.id);
     const intendedVote = currentVote?.type === voteType ? null : voteType;
-
-
+  
     try {
       const batch = writeBatch(db);
       const recipeRef = doc(db, "recipes", id);
-
+  
+      let newVotes = recipe.votes ? [...recipe.votes] : [];
+      let newVoteCount = recipe.voteCount;
+  
       if (currentVote) {
+        newVotes = newVotes.filter((vote) => vote.userId !== user.id);
         batch.update(recipeRef, {
           votes: arrayRemove(currentVote),
           voteCount: increment(-1),
-          approvalRating: currentVote.type === "up" ? increment(-1) : increment(1),
         });
+        newVoteCount -= 1;
       }
-
+  
       if (intendedVote) {
         const newVote = { userId: user.id, type: intendedVote };
+        newVotes.push(newVote);
         batch.update(recipeRef, {
           votes: arrayUnion(newVote),
           voteCount: increment(1),
-          approvalRating: intendedVote === "up" ? increment(1) : increment(-1),
         });
-      }
-
-      await batch.commit();
-
-      // Update local state
-      let newVotes = recipe.votes ? [...recipe.votes] : [];
-      let newVoteCount = recipe.voteCount;
-      let newApprovalRating = recipe.approvalRating;
-
-      if (currentVote) {
-        newVotes = newVotes.filter((vote) => vote.userId !== user.id);
-        newVoteCount -= 1;
-        if (currentVote.type === "up") {
-          newApprovalRating -= 1;
-        } else if (currentVote.type === "down") {
-          newApprovalRating += 1;
-        }
-      }
-
-      if (intendedVote) {
-        newVotes.push({ userId: user.id, type: intendedVote });
         newVoteCount += 1;
-        if (intendedVote === "up") {
-          newApprovalRating += 1;
-        } else if (intendedVote === "down") {
-          newApprovalRating -= 1;
-        }
       }
-
+  
       const totalVotes = newVotes.length;
       const upvotes = newVotes.filter((vote) => vote.type === "up").length;
-      newApprovalRating = totalVotes > 0 ? Math.round((upvotes / totalVotes) * 100) : 0;
-
+      const newApprovalRating = totalVotes > 0 ? Math.round((upvotes / totalVotes) * 100) : 0;
+  
+      batch.update(recipeRef, { approvalRating: newApprovalRating });
+  
+      await batch.commit();
+  
       setRecipe((prev) =>
         prev
           ? {
-            ...prev,
-            voteCount: newVoteCount,
-            approvalRating: newApprovalRating,
-            votes: newVotes,
-          }
+              ...prev,
+              voteCount: newVoteCount,
+              approvalRating: newApprovalRating,
+              votes: newVotes,
+            }
           : prev
       );
-
+  
       if (intendedVote) {
         toast.success("Success", {
           description: `Your ${intendedVote === "up" ? "upvote" : "downvote"} has been recorded!`,
