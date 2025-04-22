@@ -8,6 +8,9 @@ A community-driven platform for sharing and discovering authentic Sierra Leonean
 
 Foodie is a web application built with React and Firebase, dedicated to preserving and sharing the rich culinary heritage of Sierra Leone. Users can explore traditional recipes, submit their own family favorites, and connect with a community of food lovers. The platform features a community validation system where members can vote on the authenticity and accuracy of recipes.
 
+![recp](https://github.com/user-attachments/assets/85ba2ef8-e352-4766-b6d8-dfc35cc9c7ff)
+
+
 ## Features and Functionality
 
 *   **Recipe Discovery:** Browse a wide range of Sierra Leonean recipes, from everyday staples to special occasion dishes.
@@ -66,6 +69,7 @@ Before you begin, ensure you have the following installed:
 
     *   Create a `.env` file in the root directory of the project.
     *   Add your Firebase project credentials to the `.env` file.  These values should match the `firebaseConfig` object found in `src/server/firebase.ts`.
+
 
 
     ```
